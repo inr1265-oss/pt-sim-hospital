@@ -1,0 +1,6 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "pt-sim", "runtimeExecutable": "node", "runtimeArgs": ["server/server.js"], "port": 8787 }
+  ]
+}

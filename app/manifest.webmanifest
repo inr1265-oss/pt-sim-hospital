@@ -1,0 +1,11 @@
+{
+  "name": "PT 시뮬레이션 병원",
+  "short_name": "PT 시뮬레이션",
+  "description": "신성대학교 물리치료학과 임상 시뮬레이션 학습 앱",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#F2F3F5",
+  "theme_color": "#FEE500",
+  "lang": "ko",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

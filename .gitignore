@@ -1,0 +1,7 @@
+# 비밀·개인정보 — 절대 커밋 금지
+server/config.json
+server/data/
+node_modules/
+*.log
+Thumbs.db
+.DS_Store

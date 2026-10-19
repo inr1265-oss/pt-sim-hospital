@@ -1,0 +1,10 @@
+{
+  "port": 8787,
+  "adminPin": "1234",
+  "geminiApiKey": "",
+  "geminiModel": "gemini-2.5-flash",
+  "questionTarget": 40,
+  "passScore": 70,
+  "schoolName": "신성대학교 물리치료학과",
+  "appName": "PT 시뮬레이션 병원"
+}
