@@ -50,6 +50,8 @@
 관리자 PIN 기본값은 `1234` 입니다. `server/config.json` 에서 꼭 바꾸세요.
 
 ### B. 서버 없이 정적 파일로 사용(GitHub Pages 등 무료 배포)
+**배포 주소: https://inr1265-oss.github.io/pt-sim-hospital/** (저장소 inr1265-oss/pt-sim-hospital, main 에 push 하면 .github/workflows/pages.yml 이 pp/ 을 자동 배포)
+
 `app/` 폴더를 그대로 업로드하면 됩니다. 이 경우 계정·성적은 **각 브라우저(localStorage)** 에 저장되므로
 - 승인: 학생 기기에서 관리자 PIN을 입력해 승인하거나(처음 입력한 PIN이 그 기기의 관리자 PIN이 됨),
 - 성적 수집: 학생이 결과 화면의 **"내 결과 엑셀 저장"** 으로 받은 파일을 제출하는 방식이 됩니다.
