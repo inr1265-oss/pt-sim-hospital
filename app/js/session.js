@@ -16,7 +16,7 @@ window.Session = (() => {
     if (chosen.length < 5) chosen = chosen.concat(pick(partial, 5 - chosen.length));
     if (chosen.length < 5) chosen = chosen.concat(pick(pool.filter(c => !chosen.includes(c)), 5 - chosen.length));
     S.round[floor] = (S.round[floor] || 0) + 1;
-    S.rooms[floor] = chosen.map(c => { S.usedCase.add(c.id); return { case: c, done: false, questions: pickQuestions(c), chatOpened: new Set(), testsDone: new Set(), step: 'S' }; });
+    S.rooms[floor] = chosen.map(c => { S.usedCase.add(c.id); return { case: c, done: false, questions: pickQuestions(c), chatOpened: new Set(), testsDone: new Set(), step: 'S', aiChat: [], aiThreads: {} }; });
   }
   function pickQuestions(c) {
     const list = step => c.Q.map((q, i) => ({ q, i })).filter(o => o.q.step === step);
@@ -65,7 +65,22 @@ window.Session = (() => {
         if (room.chatOpened.has(k)) { chip.disabled = true; addBubble('me', q); addBubble('pt', a); }
         U.append(chips, chip);
       });
-      U.append(body, h('p', { class: 'guide' }, `💬 ${p.informant ? p.informant + '에게' : '환자에게'} 질문해 보세요. 질문 칩을 누르면 대답합니다.`), chat, chips, nextBtn('다음: 객관적 평가(O) →', 'O'));
+      (room.aiChat || []).forEach(m => addBubble(m.role === 'me' ? 'me' : 'pt', m.text));
+      let askRow = null;
+      if (Store.geminiAvailable()) {
+        const inp = h('input', { class: 'input', placeholder: '직접 질문하기 (예: 밤에 더 아픈가요?)', maxlength: '120' });
+        const send = async () => {
+          const t = inp.value.trim(); if (!t) return; inp.value = ''; btn.disabled = true; inp.disabled = true;
+          addBubble('me', t); const typing = h('div', { class: 'bubble-row pt' }, h('div', { class: 'avatar' }, '…'), h('div', { class: 'bubble pt typing' }, '생각 중…')); chat.append(typing); chat.scrollTop = chat.scrollHeight;
+          try { const a = await Gemini.patientReply({ case: c, history: room.aiChat, userQ: t }); typing.remove(); addBubble('pt', a); room.aiChat.push({ role: 'me', text: t }, { role: 'pt', text: a }); room.chatOpened.add('ai' + room.aiChat.length); tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); }
+          catch (err) { typing.remove(); addBubble('pt', '(AI 환자 응답 실패: ' + err.message + ')'); }
+          btn.disabled = false; inp.disabled = false; inp.focus();
+        };
+        const btn = h('button', { class: 'btn primary small', onClick: send }, '질문');
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+        askRow = h('div', {}, h('div', { class: 'ask-row' }, inp, btn), h('div', { class: 'ai-note' }, '🤖 AI가 환자 역할로 대답합니다. 질문 칩에 없는 내용도 자유롭게 물어보세요.'));
+      }
+      U.append(body, h('p', { class: 'guide' }, `💬 ${p.informant ? p.informant + '에게' : '환자에게'} 질문해 보세요. 질문 칩을 누르면 대답합니다.`), chat, chips, askRow, nextBtn('다음: 객관적 평가(O) →', 'O'));
     }
     function renderO() {
       const list = h('div', { class: 'tests' });
@@ -112,9 +127,27 @@ window.Session = (() => {
     function feedback(qo) {
       const q = qo.q;
       const box = h('div', { class: 'feedback ' + (qo.correct ? 'ok' : 'bad') }, h('div', { class: 'fb-title' }, qo.correct ? '⭕ 정답입니다!' : `❌ 오답입니다. 정답: ${circled[qo.order.indexOf(q.answer)]} ${q.choices[q.answer]}`), h('p', { text: q.expl }));
-      if (Store.geminiAvailable()) {
-        const out = h('div', { class: 'ai-out' });
-        U.append(box, h('button', { class: 'btn ghost small', onClick: async e => { e.currentTarget.disabled = true; out.textContent = '🤖 AI 튜터가 생각 중…'; try { out.textContent = await Gemini.explain({ case: c, question: q, chosen: qo.chosen }); } catch (err) { out.textContent = 'AI 오류: ' + err.message; } } }, '🤖 AI 튜터에게 더 자세히 묻기'), out);
+      const mode = Store.aiMode();
+      if (mode !== 'off') {
+        const th = room.aiThreads[qo.idx] = room.aiThreads[qo.idx] || { expl: null, msgs: [] };
+        const out = h('div', { class: 'ai-out' }); const thread = h('div', { class: 'ai-thread' });
+        const aiBox = h('div', { class: 'ai-box' }, h('div', { class: 'ai-head' }, '🤖 AI 튜터'), out, thread);
+        const loadExpl = async () => { if (th.expl) { out.textContent = th.expl; return; } out.textContent = '해설을 준비하는 중…'; out.classList.add('muted'); try { th.expl = await Gemini.explainCached({ case: c, question: q, qIndex: qo.idx, chosen: qo.chosen }); out.textContent = th.expl; } catch (err) { out.textContent = 'AI 해설을 불러오지 못했어요: ' + err.message; } out.classList.remove('muted'); };
+        th.msgs.forEach(m => thread.append(h('div', { class: m.role }, m.text)));
+        const inp = h('input', { class: 'input', placeholder: '더 궁금한 점을 물어보세요 (예: 왜 ②는 안 되나요?)', maxlength: '160' });
+        const send = async () => {
+          const t = inp.value.trim(); if (!t) return; inp.value = ''; inp.disabled = true; sendBtn.disabled = true;
+          thread.append(h('div', { class: 'me' }, t)); const wait = h('div', { class: 'ai muted' }, '생각 중…'); thread.append(wait);
+          try { const a = await Gemini.followUp({ case: c, question: q, chosen: qo.chosen, history: th.msgs, userQ: t }); wait.textContent = a; wait.classList.remove('muted'); th.msgs.push({ role: 'me', text: t }, { role: 'ai', text: a }); }
+          catch (err) { wait.textContent = 'AI 오류: ' + err.message; }
+          inp.disabled = false; sendBtn.disabled = false; inp.focus();
+        };
+        const sendBtn = h('button', { class: 'btn primary small', onClick: send }, '질문');
+        inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
+        aiBox.append(h('div', { class: 'ask-row' }, inp, sendBtn));
+        const auto = mode === 'always' || (mode === 'wrong' && !qo.correct) || !!th.expl;
+        if (auto) loadExpl(); else U.append(box, h('button', { class: 'btn ghost small', onClick: e => { e.currentTarget.remove(); loadExpl(); } }, '🤖 AI 튜터의 상세 해설 보기'));
+        U.append(box, aiBox);
       }
       return box;
     }

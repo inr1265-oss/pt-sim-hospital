@@ -5,7 +5,8 @@ window.Store = (() => {
     set(k, v) { try { localStorage.setItem('pt:' + k, JSON.stringify(v)); } catch (e) { console.warn('localStorage', e); } },
     del(k) { try { localStorage.removeItem('pt:' + k); } catch (e) { /* ignore */ } }
   };
-  const DEFAULTS = { questionTarget: 40, passScore: 70, geminiModel: 'gemini-2.5-flash', geminiKey: '', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const DEFAULTS = { questionTarget: 40, passScore: 70, geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const PUB = () => window.PT_CONFIG || {};
   const S = { remote: false, geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null };
 
   async function api(path, opts = {}) {
@@ -94,19 +95,25 @@ window.Store = (() => {
   S.removeCustomCase = id => LS.set('customCases', LS.get('customCases', []).filter(c => c.id !== id));
   S.casesForFloor = floor => [...((window.PT_CASES && window.PT_CASES[floor]) || []), ...S.getCustomCases().filter(c => Number(c.floor) === Number(floor))];
 
+  // ---- 학생별 환경설정(이 브라우저) ----
+  S.getPref = (k, d) => LS.get('pref:' + k, d);
+  S.setPref = (k, v) => LS.set('pref:' + k, v);
+
   // ---- Gemini ----
-  S.geminiAvailable = () => (S.remote && S.geminiRemote) || !!S.settings.geminiKey;
+  S.geminiAvailable = () => S.settings.aiMode !== 'off' && ((S.remote && S.geminiRemote) || !!S.settings.geminiKey || !!PUB().geminiKey);
+  S.aiMode = () => S.geminiAvailable() ? (S.settings.aiMode || 'wrong') : 'off';
   S.gemini = async function (payload) {
     if (S.remote && S.geminiRemote && !S.settings.geminiKey) return (await api('/gemini', { method: 'POST', body: payload })).text;
-    const key = S.settings.geminiKey;
+    const key = S.settings.geminiKey || PUB().geminiKey;
     if (!key) { if (S.remote && S.geminiRemote) return (await api('/gemini', { method: 'POST', body: payload })).text; throw new Error('Gemini API 키가 설정되지 않았습니다. (관리자 > 설정)'); }
-    const model = S.settings.geminiModel || DEFAULTS.geminiModel;
+    const model = S.settings.geminiModel || PUB().geminiModel || DEFAULTS.geminiModel;
     const body = { contents: [{ role: 'user', parts: [{ text: payload.prompt }] }], generationConfig: { temperature: payload.temperature == null ? 0.7 : payload.temperature } };
     if (payload.system) body.systemInstruction = { parts: [{ text: payload.system }] };
     if (payload.json) body.generationConfig.responseMimeType = 'application/json';
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
+    if (res.status === 429) throw new Error('AI 사용량 한도에 도달했어요. 잠시 후 다시 시도하세요.');
     if (!res.ok) throw new Error((data.error && data.error.message) || ('Gemini 오류 ' + res.status));
     const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
     return parts ? parts.map(p => p.text || '').join('') : '';

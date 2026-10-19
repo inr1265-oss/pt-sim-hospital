@@ -8,10 +8,10 @@ window.Hospital = (() => {
   const DOORS = ROOM_COLS.map(([a]) => a + 1); // 4,8,12,16,20
   const ELEV = { c0: 0, c1: 1, r0: 1, door: { c: 1, r: 5 } };
   const FLOOR_META = {
-    1: { name: '임상의사결정 문진실', color: '#FFF4CC', accent: '#D9A400' },
-    2: { name: '운동치료실', color: '#E3F3FF', accent: '#1F7AE0' },
-    3: { name: '소아물리치료실', color: '#FFE9F0', accent: '#E0457B' },
-    4: { name: '물리적인자치료실', color: '#E6F7EA', accent: '#16A34A' }
+    1: { name: '임상의사결정 문진실', color: '#E3F3EA', accent: '#0F7A4D' },
+    2: { name: '운동치료실', color: '#E1EEFF', accent: '#2563EB' },
+    3: { name: '소아물리치료실', color: '#FDE8F1', accent: '#DB2777' },
+    4: { name: '물리적인자치료실', color: '#FFF3DD', accent: '#D97706' }
   };
   let canvas = null, ctx = null, opts = {}, floor = 1, raf = null, running = false, lastTs = 0, hoverRoom = -1;
   const player = { c: 2, r: 6, x: 2, y: 6, path: [], dir: 'down', step: 0 };
@@ -122,7 +122,7 @@ window.Hospital = (() => {
       }
       ctx.fillStyle = done ? '#15803d' : '#4b5563'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
       ctx.fillText(room.label || '빈 병실', x + w / 2, y + hgt - 22);
-      ctx.fillStyle = done ? '#16a34a' : (empty ? '#9ca3af' : '#1f7ae0'); ctx.font = 'bold 11px sans-serif';
+      ctx.fillStyle = done ? '#16a34a' : (empty ? '#9ca3af' : '#0F7A4D'); ctx.font = 'bold 11px sans-serif';
       ctx.fillText(done ? '✓ 치료 완료' : empty ? '—' : '대기 중', x + w / 2, y + hgt - 8);
     });
     // 입장 힌트
@@ -136,7 +136,7 @@ window.Hospital = (() => {
     const px = (player.x + 0.5) * TILE, py = (player.y + 0.5) * TILE; const bob = player.path.length ? Math.sin(player.step) * 1.5 : 0;
     ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(px, py + 12, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
     rr(px - 9, py - 4 + bob, 18, 18, 6, '#ffffff', '#cbd5e1');
-    ctx.fillStyle = '#1f7ae0'; ctx.fillRect(px - 2, py - 2 + bob, 4, 10);
+    ctx.fillStyle = '#0F7A4D'; ctx.fillRect(px - 2, py - 2 + bob, 4, 10);
     ctx.beginPath(); ctx.arc(px, py - 10 + bob, 8, 0, Math.PI * 2); ctx.fillStyle = '#f6d3b5'; ctx.fill();
     ctx.fillStyle = '#3b2a20'; ctx.beginPath(); ctx.arc(px, py - 12 + bob, 8, Math.PI, 0); ctx.fill();
     if (player.dir !== 'up') { const ex = player.dir === 'left' ? -3 : player.dir === 'right' ? 3 : 0; ctx.fillStyle = '#333'; ctx.fillRect(px - 3 + ex, py - 10 + bob, 2, 2); ctx.fillRect(px + 1 + ex, py - 10 + bob, 2, 2); }
