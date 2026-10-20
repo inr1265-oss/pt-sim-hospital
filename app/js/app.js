@@ -78,6 +78,7 @@ window.App = (() => {
     const target = mode === 'practice' ? Infinity : (Store.settings.questionTarget || 40);
     const floors = mode === 'floor' ? [floor] : [1, 2, 3, 4];
     const prev = mode === 'practice' ? 0 : (await Store.getResults(user.studentId)).filter(r => r.mode === mode && r.floors === floors.join('+')).length;
+    await Store.syncMastered(user.studentId);
     Session.start({ mode, floors, target, user, attempt: prev + 1 });
     curFloor = (mode === 'practice' && floor) ? floor : floors[0]; mountHospital(); Hospital.setFloor(curFloor); show('hospital'); updateHUD();
     const ai = Store.geminiAvailable();
@@ -139,13 +140,15 @@ window.App = (() => {
   }
   function showResult(r) {
     show('result'); const el = $('#s-result'); el.innerHTML = ''; const pass = r.pass; const fb = Object.entries(r.byFloor || {});
+    const trendCard = r.mode !== 'practice' ? h('div', { class: 'card' }, h('h3', { text: '📈 학습 성공률 변화 추이' }), h('div', { class: 'chart-host muted small' }, '불러오는 중…')) : null;
+    if (trendCard) Store.getResults(r.studentId).then(all => { const host = trendCard.querySelector('.chart-host'); host.classList.remove('muted'); PTChart.trend(host, all, r.passScore, r.id); }).catch(() => {});
     const aiBox = Store.geminiAvailable() && r.total > 0 ? h('div', { class: 'card' }, h('h3', { text: '🤖 AI 학습 코치' }), h('div', { class: 'ai-out muted' }, '결과를 분석하는 중…')) : null;
     U.append(el,
       h('div', { class: 'result-card ' + (r.mode === 'practice' ? 'practice' : pass ? 'pass' : 'fail') }, h('div', { class: 'result-emoji' }, r.mode === 'practice' ? '🎮' : pass ? '🎉' : '💪'), h('h2', {}, r.mode === 'practice' ? '연습 종료' : pass ? '합격입니다!' : '아쉽지만 불합격이에요'),
         h('div', { class: 'score' }, `${r.score}`, h('small', {}, '점')),
         h('p', { class: 'muted' }, `${r.total}문항 중 ${r.correct}문항 정답 · 소요 ${Math.floor(r.durationSec / 60)}분 ${r.durationSec % 60}초 · 합격 기준 ${r.passScore}점` + (r.mode !== 'practice' ? ` · ${r.attempt}차 시도` : '')),
         r.mode !== 'practice' && r.total > 0 ? h('p', { class: 'tiny muted' }, Store.remote ? '결과가 서버와 이 기기에 저장되었습니다.' : '결과가 이 기기(브라우저)에 저장되었습니다.') : null),
-      aiBox,
+      aiBox, trendCard,
       fb.length ? h('div', { class: 'card' }, h('h3', { text: '층별 결과' }), h('div', { class: 'floor-bars' }, fb.map(([f, v]) => h('div', { class: 'fb-row' }, h('span', {}, `${f}F ${FLOOR[f].name}`), h('div', { class: 'bar' }, h('i', { style: { width: (v.correct / v.total * 100) + '%' } })), h('b', {}, `${v.correct}/${v.total}`))))) : null,
       r.wrong.length ? h('div', { class: 'card' }, h('h3', { text: `오답 노트 (${r.wrong.length})` }), r.wrong.map(w => h('details', { class: 'wrong' }, h('summary', {}, h('span', { class: 'tag soft' }, `${w.floor}F`), ' ', w.caseTitle, ' · ', w.stem), h('p', {}, h('b', {}, '내 답: '), w.chosen), h('p', {}, h('b', {}, '정답: '), w.answer), h('p', { class: 'muted' }, w.expl)))) : (r.total ? h('div', { class: 'card' }, h('p', { text: '오답이 없습니다. 완벽해요! 🏆' })) : null),
       h('div', { class: 'row wrap mt' }, h('button', { class: 'btn primary', onClick: () => startMode(r.mode, Number(String(r.floors).split('+')[0])) }, pass ? '다시 도전' : '재도전하기'), h('button', { class: 'btn ghost', onClick: () => show('home') }, '홈으로'), r.mode !== 'practice' && r.total ? h('button', { class: 'btn ghost', onClick: () => Admin.exportXlsx([r]) }, '📥 내 결과 엑셀 저장') : null));
@@ -153,7 +156,11 @@ window.App = (() => {
   }
   async function renderRecords() {
     const el = $('#s-records'); el.innerHTML = ''; const my = (await Store.getResults(user.studentId)).sort((a, b) => b.date.localeCompare(a.date));
-    U.append(el, h('div', { class: 'page-head' }, h('h2', { text: '📈 내 기록' }), my.length ? h('button', { class: 'btn ghost small', onClick: () => Admin.exportXlsx(my) }, '엑셀 저장') : null),
+    const nonP = my.filter(r => r.mode !== 'practice');
+    const trend = nonP.length ? h('div', { class: 'card' }, h('h3', { text: '📈 학습 성공률 변화 추이' }), (() => { const host = h('div', { class: 'chart-host' }); setTimeout(() => PTChart.trend(host, nonP, Store.settings.passScore || 70), 0); return host; })()) : null;
+    const masteredCard = h('div', { class: 'card' }, h('h3', { text: '✅ 익힌 케이스' }), h('div', { class: 'mastered-host muted small' }, '불러오는 중…'));
+    Store.getMastered(user.studentId).then(list => { const host = masteredCard.querySelector('.mastered-host'); host.innerHTML = ''; host.classList.remove('muted'); U.append(host, list.length ? [h('p', { class: 'tiny muted' }, `${list.length}개 케이스가 다음 출제에서 제외됩니다. 잘못 눌렀다면 교수님께 복원을 요청하세요.`), h('div', { class: 'row wrap' }, list.map(m => h('span', { class: 'tag soft' }, `${m.floor}F ${m.caseTitle}`)))] : h('p', { class: 'muted small' }, '아직 없어요. 정답을 맞힌 뒤 "이 케이스 익혔어요"를 누르면 여기에 모입니다.')); }).catch(() => {});
+    U.append(el, h('div', { class: 'page-head' }, h('h2', { text: '📈 내 기록' }), my.length ? h('button', { class: 'btn ghost small', onClick: () => Admin.exportXlsx(my) }, '엑셀 저장') : null), trend, masteredCard,
       my.length ? my.map(r => h('div', { class: 'card rec' }, h('div', { class: 'row between' }, h('b', { text: `${r.score}점` }), h('span', { class: 'tag ' + (r.pass ? 'ok' : 'bad') }, r.pass ? '합격' : '불합격')), h('div', { class: 'muted small' }, `${U.fmtDate(r.date)} · ${MODE[r.mode]} ${r.floors}F · ${r.correct}/${r.total} · ${r.attempt || 1}차`), r.wrong && r.wrong.length ? h('details', {}, h('summary', {}, `오답 ${r.wrong.length}개 보기`), r.wrong.map(w => h('p', { class: 'small' }, `• [${w.floor}F] ${w.stem} → 정답: ${w.answer}`))) : null)) : h('p', { class: 'muted' }, '아직 기록이 없습니다. 홈에서 평가를 시작해 보세요.'));
   }
   document.addEventListener('DOMContentLoaded', boot);

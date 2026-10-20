@@ -8,10 +8,10 @@ window.Hospital = (() => {
   const DOORS = ROOM_COLS.map(([a]) => a + 1); // 4,8,12,16,20
   const ELEV = { c0: 0, c1: 1, r0: 1, door: { c: 1, r: 5 } };
   const FLOOR_META = {
-    1: { name: '임상의사결정 문진실', color: '#E3F3EA', accent: '#0F7A4D', deep: '#0B5E3B', prop: '🩺' },
-    2: { name: '운동치료실', color: '#E1EEFF', accent: '#2563EB', deep: '#1E40AF', prop: '🏋️' },
-    3: { name: '소아물리치료실', color: '#FDE8F1', accent: '#DB2777', deep: '#9D174D', prop: '🧸' },
-    4: { name: '물리적인자치료실', color: '#FFF3DD', accent: '#D97706', deep: '#92400E', prop: '⚡' }
+    1: { name: '임상의사결정 문진실', color: '#E3F3EA', accent: '#0F7A4D', deep: '#0B5E3B', prop: '🩺', wall: '#EEF6F1', tile: ['#E2EBE5', '#EAF1EC'], gap: ['🕒', '🖼️'] },
+    2: { name: '운동치료실', color: '#E1EEFF', accent: '#2563EB', deep: '#1E40AF', prop: '🏋️', wall: '#EEF4FC', tile: ['#E0E8F3', '#E9EFF7'], gap: ['📋', '🏃'] },
+    3: { name: '소아물리치료실', color: '#FDE8F1', accent: '#DB2777', deep: '#9D174D', prop: '🧸', wall: '#FEF2F7', tile: ['#F5E4EC', '#FAEDF3'], gap: ['⭐', '☁️'] },
+    4: { name: '물리적인자치료실', color: '#FFF3DD', accent: '#D97706', deep: '#92400E', prop: '⚡', wall: '#FBF5EC', tile: ['#F0E9DE', '#F6F0E7'], gap: ['⚠️', '🧯'] }
   };
   let canvas = null, ctx = null, opts = {}, floor = 1, raf = null, running = false, lastTs = 0, hoverRoom = -1, watchdog = null;
   const player = { c: 2, r: 6, x: 2, y: 6, path: [], dir: 'down', step: 0 };
@@ -95,33 +95,84 @@ window.Hospital = (() => {
   function pill(t, cx, cy, bg, fg, font) { ctx.font = font || 'bold 10px sans-serif'; const w = ctx.measureText(t).width + 14; rr(cx - w / 2, cy - 9, w, 18, 9, bg); text(t, cx, cy + 0.5, font || 'bold 10px sans-serif', fg, 'center'); }
   const SKIN = '#F6D3B5', SKIN_D = '#E2B08E';
 
-  function drawBackground(meta) {
+  function emoji(e, x, y, size) { ctx.font = `${size}px serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(e, x, y); }
+  function chair(x, y, color) { rr(x, y + 6, 16, 10, 3, color); rr(x, y, 16, 6, 2, '#1F2937'); rr(x + 2, y + 16, 3, 4, 1, '#475569'); rr(x + 11, y + 16, 3, 4, 1, '#475569'); }
+  function drawBackground(meta, ts) {
     ctx.fillStyle = '#F4F6F9'; ctx.fillRect(0, 0, W, H);
+    // 병실 뒤 벽(층별 색·패턴)
+    ctx.fillStyle = meta.wall; ctx.fillRect(0, TILE, W, 5 * TILE);
+    if (floor === 3) { ctx.fillStyle = 'rgba(219,39,119,.08)'; for (let x = 12; x < W; x += 26) for (let y = TILE + 12; y < 6 * TILE; y += 26) { ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill(); } }
+    if (floor === 2) { ctx.fillStyle = 'rgba(37,99,235,.05)'; for (let y = TILE + 6; y < 6 * TILE; y += 12) ctx.fillRect(0, y, W, 5); }
+    if (floor === 4) { ctx.strokeStyle = 'rgba(217,119,6,.07)'; ctx.lineWidth = 1; for (let x = 0; x < W; x += 24) { ctx.beginPath(); ctx.moveTo(x, TILE); ctx.lineTo(x, 6 * TILE); ctx.stroke(); } }
+    if (floor === 1) { ctx.fillStyle = 'rgba(15,122,77,.06)'; ctx.fillRect(0, 4.4 * TILE, W, 1.6 * TILE); }
     // 상단 벽 띠 + 층 안내판
     ctx.fillStyle = lin(0, 0, 0, TILE, [[0, meta.color], [1, '#FFFFFF']]); ctx.fillRect(0, 0, W, TILE);
     ctx.fillStyle = 'rgba(0,0,0,.06)'; ctx.fillRect(0, TILE - 2, W, 2);
     rr(10, 5, 40, 22, 6, meta.deep); text(`${floor}F`, 30, 16.5, 'bold 13px sans-serif', '#fff', 'center');
     text(meta.name, 58, 16.5, 'bold 14px sans-serif', '#1F2937');
     text(U.isTouch ? '병실을 터치하면 이동 · 문 앞에서 다시 터치하면 입장' : '방향키/클릭으로 이동 · 문 앞에서 Enter로 입장', W - 12, 16.5, '11px sans-serif', '#6B7280', 'right');
-    // 병실 뒤 벽
-    ctx.fillStyle = '#EEF1F5'; ctx.fillRect(0, TILE, W, 5 * TILE);
-    // 복도 바닥(타일)
-    for (let c = 0; c < COLS; c++) for (let r = 6; r < 8; r++) { ctx.fillStyle = (c + r) % 2 ? '#E6EAF0' : '#EDF0F4'; ctx.fillRect(c * TILE, r * TILE, TILE, TILE); }
+    if (floor === 3) { // 무지개
+      ['#F87171', '#FBBF24', '#34D399', '#60A5FA', '#A78BFA'].forEach((c, i) => { ctx.strokeStyle = c; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(330, TILE + 2, 26 - i * 3.2, Math.PI, 0); ctx.stroke(); });
+      emoji('☁️', 296, TILE - 6, 13); emoji('☁️', 366, TILE - 6, 13);
+    }
+    if (floor === 2) { rr(300, 6, 150, 20, 10, meta.accent); text('오늘도 한 걸음 더! 🏃', 375, 16.5, 'bold 11px sans-serif', '#fff', 'center'); }
+    if (floor === 4) { for (let x = 300; x < 460; x += 16) { ctx.fillStyle = (x / 16) % 2 ? '#FBBF24' : '#1F2937'; ctx.fillRect(x, 24, 16, 5); } }
+    if (floor === 1) { rr(300, 6, 120, 20, 10, '#fff'); text('ℹ️ 접수 · 안내', 360, 16.5, 'bold 11px sans-serif', meta.deep, 'center'); }
+    // 병실 사이 벽 장식
+    [6, 10, 14, 18].forEach((c, i) => { const gx = c * TILE + TILE / 2; emoji(meta.gap[i % 2], gx, 1.7 * TILE + (floor === 3 ? Math.sin(ts / 700 + i) * 2 : 0), 15); if (i % 2 === 0) emoji('🪴', gx, 4.55 * TILE, 15); });
+    // 복도 바닥(타일) + 걸레받이
+    for (let c = 0; c < COLS; c++) for (let r = 6; r < 8; r++) { ctx.fillStyle = (c + r) % 2 ? meta.tile[0] : meta.tile[1]; ctx.fillRect(c * TILE, r * TILE, TILE, TILE); }
     ctx.fillStyle = 'rgba(0,0,0,.10)'; ctx.fillRect(0, 6 * TILE, W, 3);
     ctx.strokeStyle = 'rgba(31,41,55,.12)'; ctx.setLineDash([8, 8]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 7 * TILE); ctx.lineTo(W, 7 * TILE); ctx.stroke(); ctx.setLineDash([]);
-    // 하단 벽 + 창문
-    ctx.fillStyle = lin(0, 8 * TILE, 0, H, [[0, '#E3E8EF'], [1, '#D6DDE6']]); ctx.fillRect(0, 8 * TILE, W, 2 * TILE);
+    // 하단 구역(층별 테마 공간)
+    ctx.fillStyle = lin(0, 8 * TILE, 0, H, [[0, '#E6EBF1'], [1, '#D8DFE8']]); ctx.fillRect(0, 8 * TILE, W, 2 * TILE);
     ctx.fillStyle = '#C9D2DD'; ctx.fillRect(0, 8 * TILE, W, 3);
-    for (let c = 3; c < COLS - 1; c += 5) {
-      const x = c * TILE + 6, y = 8 * TILE + 8, w = TILE * 2 - 12, h = TILE * 1.3;
-      rr(x, y, w, h, 6, lin(x, y, x + w, y + h, [[0, '#DFF1FF'], [1, '#B9DBFA']]), '#9DBBD8');
-      ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(x + 6, y + h - 4); ctx.lineTo(x + 22, y + 4); ctx.lineTo(x + 30, y + 4); ctx.lineTo(x + 14, y + h - 4); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = '#9DBBD8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y + h); ctx.stroke();
-    }
-    ctx.font = '19px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ['🪴', '🛋️', '🪴', '🧯', '🪴'].forEach((e, i) => ctx.fillText(e, (1 + i * 5) * TILE + TILE / 2, 9.3 * TILE));
+    drawDecor(meta, ts);
   }
-  function drawElevator(ts) {
+  function drawDecor(meta, ts) {
+    const y0 = 8 * TILE; const t = ts / 1000;
+    const win = x => { rr(x, y0 + 8, 46, 40, 6, lin(x, y0, x + 46, y0 + 40, [[0, '#DFF1FF'], [1, '#B9DBFA']]), '#9DBBD8'); ctx.strokeStyle = '#9DBBD8'; ctx.beginPath(); ctx.moveTo(x + 23, y0 + 8); ctx.lineTo(x + 23, y0 + 48); ctx.stroke(); ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(x + 4, y0 + 44); ctx.lineTo(x + 18, y0 + 12); ctx.lineTo(x + 26, y0 + 12); ctx.lineTo(x + 12, y0 + 44); ctx.closePath(); ctx.fill(); };
+    if (floor === 1) {
+      // 접수 데스크 + 대기 의자 + 정수기 + 게시판
+      rr(36, y0 + 10, 160, 42, 8, lin(0, y0, 0, y0 + 52, [[0, '#CDA77C'], [1, '#A77B4F']]), '#8E6540'); rr(36, y0 + 10, 160, 7, 4, '#EBD8BF');
+      rr(44, y0 + 24, 64, 18, 4, '#0B5E3B'); text('접수 · 안내', 76, y0 + 33, 'bold 10px sans-serif', '#fff', 'center');
+      rr(122, y0 + 22, 60, 20, 4, '#111827'); text(`대기 ${pad2(1 + Math.floor(t / 3) % 5)}번`, 152, y0 + 32.5, 'bold 10px monospace', Math.floor(t * 2) % 2 ? '#F87171' : '#FCA5A5', 'center');
+      rr(160, y0 - 4, 24, 16, 3, '#1F2937'); rr(163, y0 - 1, 18, 10, 2, '#60A5FA'); rr(170, y0 + 12, 4, 3, 1, '#374151');
+      [0, 1, 2, 3, 4].forEach(i => chair(222 + i * 30, y0 + 20, meta.accent));
+      emoji('🚰', 400, y0 + 30, 24); emoji('🪴', 436, y0 + 32, 22);
+      rr(470, y0 + 10, 100, 40, 4, '#F8EFD8', '#C9B48B'); [0, 1, 2].forEach(i => rr(478 + i * 30, y0 + 16, 22, 26, 2, i === 1 ? '#DBEAFE' : '#fff', '#D1D5DB')); text('📌', 520, y0 + 12, '10px serif', '#000', 'center');
+      win(590); emoji('🪴', 666, y0 + 32, 22);
+    } else if (floor === 2) {
+      // 평행봉 · 매트 · 트레드밀 · 짐볼 · 자전거
+      [y0 + 16, y0 + 40].forEach(y => { rr(40, y, 110, 4, 2, '#94A3B8'); [40, 94, 146].forEach(x => rr(x, y - 2, 4, 12, 1, '#64748B')); });
+      rr(170, y0 + 10, 70, 44, 6, '#60A5FA', '#3B82F6'); ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 1; [14, 28].forEach(d => { ctx.beginPath(); ctx.moveTo(170 + d, y0 + 10); ctx.lineTo(170 + d, y0 + 54); ctx.stroke(); });
+      rr(258, y0 + 8, 48, 50, 6, '#334155'); rr(264, y0 + 16, 36, 38, 3, '#0F172A'); ctx.fillStyle = '#475569'; for (let k = 0; k < 4; k++) { const yy = y0 + 18 + ((k * 9 + t * 30) % 34); ctx.fillRect(266, yy, 32, 2); } rr(262, y0 + 4, 40, 8, 3, '#60A5FA');
+      [['#F472B6', 336, y0 + 36, 12], ['#34D399', 362, y0 + 26, 10], ['#FBBF24', 386, y0 + 40, 11]].forEach(([c, x, y, r]) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.arc(x - r / 3, y - r / 3, r / 3, 0, Math.PI * 2); ctx.fill(); });
+      emoji('🏋️', 430, y0 + 32, 26); emoji('🚴', 474, y0 + 32, 26); emoji('🧘', 516, y0 + 32, 24);
+      win(560); emoji('🪴', 650, y0 + 32, 22);
+    } else if (floor === 3) {
+      // 놀이매트 · 미끄럼틀 · 장난감 · 풍선
+      const cols = ['#FCA5A5', '#FDE68A', '#86EFAC', '#93C5FD'];
+      for (let i = 0; i < 6; i++) for (let j = 0; j < 2; j++) rr(36 + i * 26, y0 + 8 + j * 26, 24, 24, 4, cols[(i + j) % 4]);
+      ctx.fillStyle = '#FBBF24'; ctx.beginPath(); ctx.moveTo(210, y0 + 54); ctx.lineTo(240, y0 + 10); ctx.lineTo(252, y0 + 10); ctx.lineTo(290, y0 + 54); ctx.closePath(); ctx.fill();
+      rr(236, y0 + 6, 20, 8, 3, '#F59E0B'); ctx.strokeStyle = '#B45309'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(214, y0 + 50); ctx.lineTo(242, y0 + 12); ctx.stroke();
+      emoji('🧸', 318, y0 + 34, 24); emoji('🚂', 352 + Math.sin(t) * 3, y0 + 36, 24); emoji('🪀', 388, y0 + 30, 20);
+      rr(412, y0 + 20, 56, 34, 6, '#F9A8D4', '#EC4899'); text('TOY', 440, y0 + 38, 'bold 11px sans-serif', '#fff', 'center');
+      [[500, 0], [526, 1.3]].forEach(([x, ph], i) => { const by = y0 + 22 + Math.sin(t * 1.6 + ph) * 3; ctx.strokeStyle = '#9CA3AF'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, by + 10); ctx.lineTo(x + 2, y0 + 58); ctx.stroke(); ctx.fillStyle = i ? '#60A5FA' : '#F472B6'; ctx.beginPath(); ctx.ellipse(x, by, 9, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(x - 3, by - 4, 2.5, 0, Math.PI * 2); ctx.fill(); });
+      win(560); emoji('🪴', 650, y0 + 32, 22);
+    } else {
+      // 전기치료기 카트 · 핫팩 유닛 · 적외선 램프 · 초음파 · 냉팩 냉장고 · 파라핀욕
+      rr(36, y0 + 8, 60, 48, 6, '#E5E7EB', '#9CA3AF'); rr(42, y0 + 14, 48, 20, 3, '#0F172A'); ctx.strokeStyle = '#34D399'; ctx.lineWidth = 1.5; ctx.beginPath(); for (let k = 0; k <= 44; k += 2) { const yy = y0 + 24 + Math.sin(k / 4 + t * 4) * 6 * (k % 16 < 8 ? 1 : .3); k ? ctx.lineTo(44 + k, yy) : ctx.moveTo(44 + k, yy); } ctx.stroke();
+      [52, 66, 80].forEach(x => { ctx.fillStyle = '#6B7280'; ctx.beginPath(); ctx.arc(x, y0 + 44, 4, 0, Math.PI * 2); ctx.fill(); }); ctx.fillStyle = Math.floor(t * 2) % 2 ? '#22C55E' : '#166534'; ctx.beginPath(); ctx.arc(90, y0 + 44, 2.5, 0, Math.PI * 2); ctx.fill();
+      rr(112, y0 + 14, 50, 42, 6, lin(112, 0, 162, 0, [[0, '#E5E7EB'], [1, '#9CA3AF']]), '#6B7280'); rr(116, y0 + 10, 42, 8, 3, '#9CA3AF'); ctx.strokeStyle = 'rgba(148,163,184,.8)'; ctx.lineWidth = 1.5; for (let k = 0; k < 3; k++) { const ph = (t * 0.8 + k * 0.7) % 1; ctx.globalAlpha = 1 - ph; ctx.beginPath(); ctx.moveTo(124 + k * 12, y0 + 8 - ph * 12); ctx.quadraticCurveTo(128 + k * 12, y0 + 2 - ph * 12, 124 + k * 12, y0 - 4 - ph * 12); ctx.stroke(); } ctx.globalAlpha = 1; emoji('🔥', 137, y0 + 36, 16);
+      ctx.strokeStyle = '#64748B'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(190, y0 + 56); ctx.lineTo(190, y0 + 22); ctx.lineTo(206, y0 + 14); ctx.stroke(); const glow = ctx.createRadialGradient(210, y0 + 14, 2, 210, y0 + 14, 18); glow.addColorStop(0, 'rgba(252,165,165,.9)'); glow.addColorStop(1, 'rgba(252,165,165,0)'); ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(210, y0 + 14, 18, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#EF4444'; ctx.beginPath(); ctx.arc(210, y0 + 14, 8, 0, Math.PI * 2); ctx.fill(); rr(180, y0 + 54, 20, 4, 2, '#475569');
+      rr(236, y0 + 8, 54, 48, 6, '#F3F4F6', '#9CA3AF'); rr(242, y0 + 14, 42, 16, 3, '#1E3A8A'); text('US', 263, y0 + 22.5, 'bold 9px sans-serif', '#BFDBFE', 'center'); ctx.strokeStyle = '#4B5563'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(284, y0 + 34); ctx.quadraticCurveTo(300, y0 + 40, 296, y0 + 52); ctx.stroke(); rr(292, y0 + 50, 10, 6, 2, '#374151');
+      rr(322, y0 + 4, 36, 54, 5, '#BFDBFE', '#60A5FA'); rr(326, y0 + 10, 28, 20, 3, '#DBEAFE'); rr(352, y0 + 22, 3, 16, 1, '#1D4ED8'); emoji('🧊', 340, y0 + 44, 14);
+      rr(380, y0 + 20, 48, 32, 6, '#FDE68A', '#F59E0B'); rr(384, y0 + 24, 40, 12, 4, '#FEF3C7'); emoji('🕯️', 404, y0 + 44, 12);
+      emoji('⚡', 452, y0 + 32, 22); win(560); emoji('🪴', 650, y0 + 32, 22);
+    }
+  }
+  const pad2 = n => String(n).padStart(2, '0');  function drawElevator(ts) {
     const x = 4, y = ELEV.r0 * TILE + 4, w = 2 * TILE - 8, h = 4 * TILE - 8;
     rr(x, y, w, h, 8, lin(x, y, x + w, y, [[0, '#B6C1CF'], [0.5, '#E2E8F0'], [1, '#B6C1CF']]), '#8E9AAB');
     rr(x + 6, y + 6, w - 12, 16, 4, '#1F2937'); text(`${floor}F ▲▼`, x + w / 2, y + 14.5, 'bold 10px monospace', '#F87171', 'center');
@@ -192,7 +243,7 @@ window.Hospital = (() => {
   function draw(ts) {
     const meta = FLOOR_META[floor] || FLOOR_META[1];
     ctx.clearRect(0, 0, W, H);
-    drawBackground(meta); drawElevator(ts);
+    drawBackground(meta, ts); drawElevator(ts);
     ROOM_COLS.forEach((_, i) => drawRoom(i, meta, ts));
     if (player.r === 6 && !player.path.length) {
       let hintX = null, t = '';

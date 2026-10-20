@@ -9,11 +9,11 @@ window.Admin = (() => {
   async function render(container) {
     container.innerHTML = '';
     if (!Store.adminPin) return gate(container);
-    const tabs = ['승인 관리', '성적 관리', '설정', '데이터 · AI 케이스']; let cur = 0;
+    const tabs = ['승인 관리', '성적 관리', '학생 기록', '설정', '데이터 · AI 케이스']; let cur = 0;
     const tabBar = h('div', { class: 'tabs' }, tabs.map((t, i) => h('button', { class: 'tab' + (i === cur ? ' active' : ''), onClick: () => { cur = i; draw(); } }, t)));
     const body = h('div', { class: 'admin-body' });
     U.append(container, h('div', { class: 'page-head' }, h('h2', { text: '🔑 관리자(교수) 콘솔' }), h('div', { class: 'row' }, h('span', { class: 'tag soft' }, Store.remote ? '서버 모드' : '로컬(이 브라우저) 모드'), h('button', { class: 'btn ghost small', onClick: () => { Store.adminPin = null; App.show(backTarget()); } }, '나가기'))), tabBar, body);
-    async function draw() { tabBar.querySelectorAll('.tab').forEach((b, i) => b.classList.toggle('active', i === cur)); body.innerHTML = ''; await [users, results, settings, data][cur](body); }
+    async function draw() { tabBar.querySelectorAll('.tab').forEach((b, i) => b.classList.toggle('active', i === cur)); body.innerHTML = ''; await [users, results, students, settings, data][cur](body); }
     draw();
   }
   function gate(container) {
@@ -69,6 +69,26 @@ window.Admin = (() => {
       const all = (await Store.getResults()).filter(r => r.mode !== 'practice'); const buf = XLSX.write(buildWorkbook(all), { bookType: 'xlsx', type: 'array' });
       const fh = await hdl.getFileHandle('PT_시뮬레이션_성적.xlsx', { create: true }); const w = await fh.createWritable(); await w.write(buf); await w.close(); return true;
     } catch (e) { console.warn('autosave', e); return false; }
+  }
+  // ---- 학생 기록: 성공률 추이 + 익힌 케이스 삭제(복원) ----
+  async function students(body) {
+    const users = await Store.getUsers(); const results = (await Store.getResults()).filter(r => r.mode !== 'practice'); const mastered = await Store.getMastered();
+    const ids = [...new Set([...users.map(u => u.studentId), ...results.map(r => r.studentId), ...mastered.map(m => m.studentId)])];
+    const nameOf = id => (users.find(u => u.studentId === id) || results.find(r => r.studentId === id) || {}).name || '';
+    let cur = ids[0] || '';
+    const sel = h('select', { class: 'input', style: { maxWidth: '320px' }, onChange: e => { cur = e.target.value; draw(); } }, ids.map(id => h('option', { value: id, text: `${nameOf(id)} (${id})` })));
+    const host = h('div', {});
+    const draw = () => {
+      host.innerHTML = ''; if (!cur) return U.append(host, h('p', { class: 'muted' }, '학생이 없습니다.'));
+      const my = results.filter(r => r.studentId === cur); const ms = mastered.filter(m => m.studentId === cur);
+      const chart = h('div', { class: 'chart-host' }); setTimeout(() => PTChart.trend(chart, my, Store.settings.passScore || 70), 0);
+      U.append(host, h('h3', { text: `📈 ${nameOf(cur)} 학생 성공률 추이 (${my.length}회 응시)` }), my.length ? chart : h('p', { class: 'muted small' }, '응시 기록이 없습니다.'),
+        h('h3', { class: 'mt', text: `✅ 익힌 케이스 (${ms.length})` }), h('p', { class: 'tiny muted' }, '학생이 정답을 맞힌 뒤 "익혔어요"로 표시한 케이스입니다. 잘못 눌렀다면 삭제하세요. 삭제하면 그 학생에게 다시 출제됩니다.'),
+        ms.length ? ms.map(m => h('div', { class: 'list-row' }, h('div', {}, h('b', { text: `${m.floor}F ${m.caseTitle}` }), h('div', { class: 'tiny muted' }, `${m.caseId} · ${fmtDate(m.at)}`)),
+          h('button', { class: 'btn small danger', onClick: async () => { if (!(await U.confirm(`'${m.caseTitle}'을(를) ${nameOf(cur)} 학생의 익힘 기록에서 삭제할까요? 다시 출제됩니다.`))) return; await Store.removeMastered(cur, m.caseId); mastered.splice(mastered.indexOf(m), 1); toast('삭제했습니다. 다시 출제됩니다.', 'ok'); draw(); } }, '삭제'))) : h('p', { class: 'muted small' }, '없음'),
+        ms.length > 1 ? h('button', { class: 'btn ghost small mt', onClick: async () => { if (!(await U.confirm('이 학생의 익힘 기록을 모두 삭제할까요?'))) return; for (const m of ms) { await Store.removeMastered(cur, m.caseId); mastered.splice(mastered.indexOf(m), 1); } draw(); } }, '모두 삭제') : null);
+    };
+    U.append(body, h('div', { class: 'row wrap' }, h('b', { text: '학생 선택' }), sel), host); draw();
   }
   async function settings(body) {
     const s = Store.settings; const f = {};

@@ -8,7 +8,9 @@ window.Session = (() => {
   function end() { S.active = false; S.currentRoom = null; }
   const qKey = (c, i) => c.id + '#' + i;
   function assign(floor) {
-    const pool = Store.casesForFloor(floor).map(c => ({ ...c, floor }));
+    const base = Store.casesForFloor(floor).map(c => ({ ...c, floor }));
+    const mastered = (S.cfg && S.cfg.user) ? Store.masteredIds(S.cfg.user.studentId) : new Set();
+    let pool = base.filter(c => !mastered.has(c.id)); if (pool.length < 5) pool = base; // 익힌 케이스 제외(남는 케이스가 너무 적으면 전체 사용)
     const hasUnused = c => c.Q.some((q, i) => !S.usedQ.has(qKey(c, i)));
     const fresh = pool.filter(c => !S.usedCase.has(c.id) && hasUnused(c));
     const partial = pool.filter(c => S.usedCase.has(c.id) && hasUnused(c));
@@ -127,6 +129,12 @@ window.Session = (() => {
     function feedback(qo) {
       const q = qo.q;
       const box = h('div', { class: 'feedback ' + (qo.correct ? 'ok' : 'bad') }, h('div', { class: 'fb-title' }, qo.correct ? '⭕ 정답입니다!' : `❌ 오답입니다. 정답: ${circled[qo.order.indexOf(q.answer)]} ${q.choices[q.answer]}`), h('p', { text: q.expl }));
+      if (qo.correct && S.cfg.user) {
+        const row = h('div', { class: 'master-row' });
+        const show = () => { row.innerHTML = ''; if (room.mastered) U.append(row, h('span', { class: 'tag ok' }, '✓ 익힘 처리됨 · 다음부터 이 환자는 나오지 않아요'), h('span', { class: 'tiny muted' }, ' 잘못 눌렀다면 교수님이 기록에서 삭제(복원)할 수 있어요.'));
+          else U.append(row, h('button', { class: 'btn soft small', onClick: async () => { if (!(await U.confirm(`'${c.title}' 케이스를 익힘 처리할까요? 다음 평가·연습부터 이 환자는 출제되지 않아요. (교수님이 기록에서 삭제하면 다시 나옵니다)`, { ok: '익혔어요' }))) return; room.mastered = true; await Store.addMastered({ studentId: S.cfg.user.studentId, caseId: c.id, caseTitle: c.title, floor, at: Date.now() }); toast('익힘 처리 완료! 이 환자는 다음부터 제외됩니다.', 'ok'); show(); } }, '🗑️ 이 케이스 익혔어요 (다음부터 제외)')); };
+        show(); U.append(box, row);
+      }
       const mode = Store.aiMode();
       if (mode !== 'off') {
         const th = room.aiThreads[qo.idx] = room.aiThreads[qo.idx] || { expl: null, msgs: [] };

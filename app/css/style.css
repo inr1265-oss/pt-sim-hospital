@@ -219,3 +219,14 @@ body[data-screen="auth"] .bottom-nav,body[data-screen="admin"] .bottom-nav{displ
   .soap-tabs{top:88px}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* 추이 차트 */
+.trend-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:4px 0 10px}
+.tstat{background:var(--g-mist);border:1px solid var(--g-line);border-radius:12px;padding:8px 10px}
+.tstat-k{font-size:.74rem;color:var(--muted);font-weight:700}.tstat-v{font-size:1.15rem;font-weight:800;color:var(--g-deep);line-height:1.2}.tstat-s{font-size:.72rem;color:var(--muted)}
+.chart-wrap{position:relative}
+.trend-svg{width:100%;height:auto;display:block;font-family:inherit}
+.chart-tip{display:none;position:absolute;transform:translate(-50%,-100%);background:#14201A;color:#fff;font-size:.78rem;line-height:1.4;padding:6px 10px;border-radius:8px;pointer-events:none;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.2);z-index:2}
+.chart-table{margin-top:6px}.chart-table summary{cursor:pointer;font-size:.82rem;color:var(--muted);font-weight:700}
+.chart-table table.grid{min-width:0;font-size:.8rem;margin-top:6px}
+.master-row{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+@media (max-width:760px){.trend-stats{grid-template-columns:repeat(2,1fr)}}

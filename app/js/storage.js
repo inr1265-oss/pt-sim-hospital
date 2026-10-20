@@ -95,6 +95,25 @@ window.Store = (() => {
   S.removeCustomCase = id => LS.set('customCases', LS.get('customCases', []).filter(c => c.id !== id));
   S.casesForFloor = floor => [...((window.PT_CASES && window.PT_CASES[floor]) || []), ...S.getCustomCases().filter(c => Number(c.floor) === Number(floor))];
 
+  // ---- 익힌(완료 처리) 케이스: 정답 후 학생이 표시 → 이후 출제 제외. 관리자가 기록에서 삭제하면 복원 ----
+  S.getMastered = async function (studentId) {
+    if (S.remote) return (await api('/mastered' + (studentId ? `?studentId=${encodeURIComponent(studentId)}` : ''))).mastered;
+    return LS.get('mastered', []).filter(m => !studentId || m.studentId === studentId);
+  };
+  S.addMastered = async function (rec) {
+    const all = LS.get('mastered', []);
+    if (!all.some(m => m.studentId === rec.studentId && m.caseId === rec.caseId)) { all.push(rec); LS.set('mastered', all); }
+    if (S.remote) { try { await api('/mastered', { method: 'POST', body: rec }); } catch (e) { U.toast('서버 저장 실패(이 기기에는 저장됨): ' + e.message, 'err'); } }
+  };
+  S.removeMastered = async function (studentId, caseId) {
+    LS.set('mastered', LS.get('mastered', []).filter(m => !(m.studentId === studentId && m.caseId === caseId)));
+    if (S.remote) await api('/mastered/delete', { method: 'POST', body: { studentId, caseId } });
+  };
+  S.masteredIds = studentId => new Set(LS.get('mastered', []).filter(m => m.studentId === studentId).map(m => m.caseId));
+  S.syncMastered = async function (studentId) {
+    if (!S.remote) return;
+    try { const list = await S.getMastered(studentId); LS.set('mastered', LS.get('mastered', []).filter(m => m.studentId !== studentId).concat(list)); } catch (e) { /* 오프라인이면 로컬 사용 */ }
+  };
   // ---- 학생별 환경설정(이 브라우저) ----
   S.getPref = (k, d) => LS.get('pref:' + k, d);
   S.setPref = (k, v) => LS.set('pref:' + k, v);
@@ -119,6 +138,6 @@ window.Store = (() => {
     return parts ? parts.map(p => p.text || '').join('') : '';
   };
 
-  S.exportAll = () => ({ users: LS.get('users', []), results: LS.get('results', []), settings: S.settings, customCases: LS.get('customCases', []) });
+  S.exportAll = () => ({ users: LS.get('users', []), results: LS.get('results', []), settings: S.settings, customCases: LS.get('customCases', []), mastered: LS.get('mastered', []) });
   return S;
 })();

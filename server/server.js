@@ -61,6 +61,10 @@ async function api(req, res, url) {
     if (sid) return send(res, 200, { results: all.filter(r => r.studentId === sid) });
     if (!isAdmin(req, url)) return send(res, 403, { error: '관리자 권한 필요' }); return send(res, 200, { results: all });
   }
+  // --- 익힌 케이스(학생별) ---
+  if (p === '/mastered' && m === 'GET') { const sid = url.searchParams.get('studentId'); const all = readJson('mastered.json', []); if (sid) return send(res, 200, { mastered: all.filter(x => x.studentId === sid) }); if (!isAdmin(req, url)) return send(res, 403, { error: '관리자 권한 필요' }); return send(res, 200, { mastered: all }); }
+  if (p === '/mastered' && m === 'POST') { const b = await body(req); if (!b.studentId || !b.caseId) return send(res, 400, { error: '형식 오류' }); const all = readJson('mastered.json', []); if (!all.some(x => x.studentId === b.studentId && x.caseId === b.caseId)) { all.push({ studentId: String(b.studentId), caseId: String(b.caseId), caseTitle: String(b.caseTitle || '').slice(0, 80), floor: Number(b.floor) || 0, at: Date.now() }); writeJson('mastered.json', all); } return send(res, 200, { ok: true }); }
+  if (p === '/mastered/delete' && m === 'POST') { const b = await body(req); writeJson('mastered.json', readJson('mastered.json', []).filter(x => !(x.studentId === b.studentId && x.caseId === b.caseId))); return send(res, 200, { ok: true }); }
   if (p === '/gemini' && m === 'POST') { try { return send(res, 200, { text: await gemini(await body(req)) }); } catch (e) { return send(res, 502, { error: e.message }); } }
   // --- 관리자 전용 ---
   if (p === '/admin/verify' && m === 'POST') { const b = await body(req); return String(b.pin) === String(config.adminPin) ? send(res, 200, { ok: true }) : send(res, 401, { error: 'PIN 불일치' }); }
