@@ -109,6 +109,17 @@ window.Admin = (() => {
       h('h3', { class: 'mt' }, '🛏️ 환자 3D 모델(선택)'),
       h('p', { class: 'muted small' }, '환자도 GLB로 교체할 수 있습니다. 저장소의 app/assets/models/ 에 파일을 넣고 상대 경로(예: assets/models/patient_f.glb)를 적거나 공개 URL을 넣으세요. Mixamo 리깅(Hips·LeftUpLeg 등)이 있으면 누움·엎드림·앉음 자세를 자동으로 잡고, 리깅이 없으면 누운 자세로만 눕힙니다. 자세한 제작 절차는 app/assets/models/README.md 를 보세요.'),
       field('patientGlbF', '성인 여자 환자 GLB'), field('patientGlbM', '성인 남자 환자 GLB'), field('patientGlbChild', '소아 환자 GLB'), field('patientGlbElderF', '노인 여자 환자 GLB (비우면 성인 여자 사용)'), field('patientGlbElderM', '노인 남자 환자 GLB (비우면 성인 남자 사용)'),
+      h('h3', { class: 'mt' }, '📤 GLB 파일 업로드 (서버 모드)'),
+      Store.remote ? (() => {
+        const slot = h('select', { class: 'input', style: { maxWidth: '260px' } }, [['patientGlbF', '성인 여자 환자'], ['patientGlbM', '성인 남자 환자'], ['patientGlbChild', '소아 환자'], ['patientGlbElderF', '노인 여자 환자'], ['patientGlbElderM', '노인 남자 환자'], ['avatarGlbF', '여자 치료사'], ['avatarGlbM', '남자 치료사']].map(([v, t]) => h('option', { value: v, text: t })));
+        const fileIn = h('input', { class: 'input', type: 'file', accept: '.glb,.gltf', style: { maxWidth: '320px' } }); const out = h('div', { class: 'tiny muted' });
+        const btn = h('button', { class: 'btn primary', onClick: async () => {
+          const file = fileIn.files && fileIn.files[0]; if (!file) return toast('GLB 파일을 먼저 선택하세요.', 'err'); if (file.size > 80 * 1024 * 1024) return toast('80 MB 이하 파일만 업로드할 수 있어요.', 'err');
+          btn.disabled = true; out.textContent = `업로드 중… (${(file.size / 1048576).toFixed(1)} MB)`;
+          try { const name = file.name.replace(/[^A-Za-z0-9_.-]/g, '_'); const p = await Store.uploadAsset(file, name); if (f[slot.value]) f[slot.value].value = p; await Store.saveSettings({ [slot.value]: p }); out.textContent = `완료: ${p} → "${slot.options[slot.selectedIndex].text}" 슬롯에 적용·저장했습니다. 병원 화면을 새로고침하면 반영됩니다.`; toast('업로드 완료', 'ok'); }
+          catch (e) { out.textContent = '실패: ' + e.message; } btn.disabled = false; } }, '업로드 후 슬롯에 적용');
+        return h('div', {}, h('p', { class: 'muted small' }, 'PC에서 만든 GLB를 바로 올립니다. 파일은 서버의 app/assets/models/ 에 저장되고 선택한 슬롯에 경로가 자동 입력됩니다. GitHub Pages에도 반영하려면 그 폴더를 커밋·push 하세요.'), h('div', { class: 'row wrap' }, slot, fileIn, btn), out);
+      })() : h('p', { class: 'muted small' }, '정적 배포(GitHub Pages)에서는 업로드 기능이 없습니다. 저장소의 app/assets/models/ 에 파일을 넣고 위 칸에 assets/models/파일명.glb 를 적어 주세요. 로컬 서버(start.bat)에서는 이 자리에 업로드 버튼이 나타납니다.'),
       h('h3', { class: 'mt' }, '🔐 관리자 PIN 변경'),
       h('div', { class: 'row' }, f.newPin = h('input', { class: 'input', type: 'password', placeholder: '새 PIN (숫자 4~8자리)', maxlength: '8' }), h('button', { class: 'btn ghost', onClick: async () => { const v = f.newPin.value.trim(); if (!/^\d{4,8}$/.test(v)) return toast('숫자 4~8자리로 입력하세요', 'err'); try { await Store.adminChangePin(v); toast('PIN 변경 완료', 'ok'); } catch (e) { toast(e.message, 'err'); } } }, '변경'))));
   }

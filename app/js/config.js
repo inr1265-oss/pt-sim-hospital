@@ -5,13 +5,13 @@
 window.PT_CONFIG = {
   geminiKey: "",
   geminiModel: "gemini-2.5-flash",
-  // (선택) 치료사 3D 아바타 GLB 공개 URL — 비우면 내장 캐릭터 사용. 예: Ready Player Me "https://models.readyplayer.me/<id>.glb"
-  avatarGlbF: "",
-  avatarGlbM: "",
-  // (선택) 환자 3D 모델 GLB — 저장소 app/assets/models/ 에 넣고 상대 경로를 적으면 됩니다. 예: "assets/models/patient_f.glb"
-  patientGlbF: "",
-  patientGlbM: "",
-  patientGlbChild: "",
-  patientGlbElderF: "",
-  patientGlbElderM: ""
+  // 3D 사람 모델(GLB). 아래 기본 파일명으로 app/assets/models/ 에 넣기만 하면 자동 적용되고,
+  // 파일이 없으면 조용히 내장 캐릭터를 씁니다. 공개 URL(예: Ready Player Me "https://models.readyplayer.me/<id>.glb")도 가능.
+  avatarGlbF: "assets/models/therapist_f.glb",
+  avatarGlbM: "assets/models/therapist_m.glb",
+  patientGlbF: "assets/models/patient_f.glb",
+  patientGlbM: "assets/models/patient_m.glb",
+  patientGlbChild: "assets/models/patient_child.glb",
+  patientGlbElderF: "assets/models/patient_elder_f.glb",
+  patientGlbElderM: "assets/models/patient_elder_m.glb"
 };
