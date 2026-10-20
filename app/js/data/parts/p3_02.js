@@ -2,7 +2,7 @@ window.PT_CASES = window.PT_CASES || {}; window.PT_CASES[3] = window.PT_CASES[3]
 window.PT_CASES[3].push(
 {
  id:"3f-04", title:"다운증후군 영아", sub:"저긴장 · 10개월", dx:"다운증후군, 저긴장성 운동발달 지연",
- patient:{name:"지아", age:0.8, ageText:"10개월", sex:"여", job:"영아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"최지아", age:0.8, ageText:"10개월", sex:"여", job:"영아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"10개월인데 아직 혼자 못 앉아요.", chat:[
   ["현재 발달은 어떤가요?","목 가누기가 늦었고 아직 혼자 앉지 못해요. 받쳐주면 앉아요."],
   ["건강 문제는요?","심실중격결손으로 6개월에 수술했고 지금은 괜찮대요."],
@@ -21,7 +21,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-05", title:"발달지연 유아(독립보행 지연)", sub:"대근육 지연 · 18개월", dx:"대근육 운동발달 지연(원인 미상)",
- patient:{name:"도현이", age:1.5, ageText:"18개월", sex:"남", job:"유아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"정도현", age:1.5, ageText:"18개월", sex:"남", job:"유아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"18개월인데 아직 혼자 못 걸어요.", chat:[
   ["현재 이동은 어떻게 하나요?","혼자 서긴 하고 가구 잡고 옆으로 걸어요. 손 놓으면 주저앉아요."],
   ["출생력은요?","만삭 정상 분만, 3.2 kg이었어요. 특별한 일은 없었어요."],
@@ -40,7 +40,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-06", title:"경직형 편마비 뇌성마비", sub:"GMFCS I · MACS II · 4세", dx:"오른쪽 경직형 편마비(spastic hemiplegia) 뇌성마비",
- patient:{name:"수아", age:4, sex:"여", job:"유치원 재원", region:"hand_R", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"강수아", age:4, sex:"여", job:"유치원 재원", region:"hand_R", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"오른손을 거의 안 쓰고 오른발로 까치발을 해요.", chat:[
   ["출생력은요?","만삭 출생인데 신생아 때 뇌졸중이 있었다고 했어요."],
   ["손 사용은요?","왼손만 써요. 오른손은 주먹을 쥐고 있고 물건을 잡아도 놓지를 못해요."],

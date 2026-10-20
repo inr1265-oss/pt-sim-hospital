@@ -5,7 +5,7 @@ window.Store = (() => {
     set(k, v) { try { localStorage.setItem('pt:' + k, JSON.stringify(v)); } catch (e) { console.warn('localStorage', e); } },
     del(k) { try { localStorage.removeItem('pt:' + k); } catch (e) { /* ignore */ } }
   };
-  const DEFAULTS = { questionTarget: 40, passScore: 70, geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
   const PUB = () => window.PT_CONFIG || {};
   const S = { remote: false, geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null };
 
@@ -133,6 +133,7 @@ window.Store = (() => {
       { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     const data = await res.json().catch(() => ({}));
     if (res.status === 429) throw new Error('AI 사용량 한도에 도달했어요. 잠시 후 다시 시도하세요.');
+    if (res.status === 404 && model !== 'gemini-2.5-flash' && !payload._retried) { U.toast('모델 ' + model + ' 을(를) 찾을 수 없어 gemini-2.5-flash 로 재시도합니다.', 'info'); S.settings.geminiModel = 'gemini-2.5-flash'; return S.gemini({ ...payload, _retried: true }); }
     if (!res.ok) throw new Error((data.error && data.error.message) || ('Gemini 오류 ' + res.status));
     const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
     return parts ? parts.map(p => p.text || '').join('') : '';

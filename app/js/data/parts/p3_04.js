@@ -2,7 +2,7 @@ window.PT_CASES = window.PT_CASES || {}; window.PT_CASES[3] = window.PT_CASES[3]
 window.PT_CASES[3].push(
 {
  id:"3f-11", title:"경직형 사지마비 뇌성마비", sub:"GMFCS V · 8세", dx:"경직형 사지마비(spastic quadriplegia) 뇌성마비, GMFCS V, 엉덩관절 아탈구 위험",
- patient:{name:"현우", age:8, sex:"남", job:"특수학교 2학년", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"오현우", age:8, sex:"남", job:"특수학교 2학년", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"혼자 앉지 못하고 몸이 늘 뻣뻣해요. 엉덩이가 빠질 수 있대요.", chat:[
   ["출생 때 상황은요?","28주 조산으로 태어났고 뇌실주위백질연화증 진단을 받았어요."],
   ["앉기나 이동은 어떻게 하나요?","혼자 못 앉고 특수 휠체어에 앉혀요. 머리 가누기도 불안정해요."],
@@ -40,7 +40,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-13", title:"근긴장저하 영아(양성 선천성 저긴장)", sub:"저긴장 · 6개월", dx:"양성 선천성 근긴장저하(benign congenital hypotonia), 운동발달 지연",
- patient:{name:"서윤이", age:0, ageText:"6개월", sex:"여", job:"영아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"신서윤", age:0, ageText:"6개월", sex:"여", job:"영아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"아기가 흐물흐물하고 목을 잘 못 가눠요.", chat:[
   ["출생 때는 어땠나요?","만삭에 정상 분만이었고 울음도 바로 울었어요."],
   ["먹는 건 어떤가요?","젖을 빠는 힘이 약해 오래 걸리지만 체중은 늘어요."],
@@ -59,7 +59,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-14", title:"자폐스펙트럼장애 동반 운동발달지연", sub:"감각 처리 · 4세", dx:"자폐스펙트럼장애, 대근육 운동발달 지연·운동 계획 장애",
- patient:{name:"하율이", age:4, sex:"남", job:"어린이집", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"권하율", age:4, sex:"남", job:"어린이집", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"잘 넘어지고 공놀이나 점프를 못 해요. 낯선 곳에선 치료를 거부해요.", chat:[
   ["운동 발달은 어땠나요?","걷기는 16개월에 했는데 뛰기·점프를 못 하고 자주 넘어져요."],
   ["의사소통은요?","단어 몇 개만 말하고 눈을 잘 안 맞춰요."],
@@ -78,7 +78,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-15", title:"소아 팔꿈치 위관절융기 골절 후 강직", sub:"깁스 제거 후 · 7세", dx:"왼쪽 위팔뼈 관절융기위 골절(Gartland II) 경피 핀 고정 후 4주, 팔꿈치 강직",
- patient:{name:"채원이", age:7, sex:"여", job:"초등학교 1학년", region:"elbow_L", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"송채원", age:7, sex:"여", job:"초등학교 1학년", region:"elbow_L", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"깁스를 풀었는데 팔꿈치가 굳어서 안 펴지고 안 굽혀져요.", chat:[
   ["어떻게 다쳤나요?","4주 전 정글짐에서 떨어져 팔을 짚었어요."],
   ["치료는 어떻게 받았나요?","핀을 박고 깁스했고 어제 핀과 깁스를 뺐어요."],
@@ -97,7 +97,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-16", title:"척수성 근위축증 2형", sub:"앉기 가능(sitter) · 3세", dx:"척수성 근위축증(SMA) 2형, 뉴시너센 치료 중",
- patient:{name:"지온이", age:3, sex:"여", job:"유아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"조지온", age:3, sex:"여", job:"유아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"앉긴 하는데 서지 못하고 점점 등이 휘는 것 같아요.", chat:[
   ["진단은 언제 받았나요?","생후 10개월에 유전자 검사로 진단받았어요."],
   ["치료는요?","4개월마다 척수강 내 주사(뉴시너센)를 맞아요."],
@@ -135,7 +135,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-18", title:"미숙아 발달 추적(교정연령 6개월)", sub:"조산아 · 고위험 영아", dx:"재태 29주 미숙아, 뇌실내출혈 2등급 병력, 교정연령 6개월 발달 추적",
- patient:{name:"리안이", age:0, ageText:"교정연령 6개월(생후 9개월)", sex:"남", job:"영아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"백리안", age:0, ageText:"교정연령 6개월(생후 9개월)", sex:"남", job:"영아", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"또래보다 발달이 느린 것 같아 걱정이에요. 뒤집기를 한쪽으로만 해요.", chat:[
   ["출생 상황은요?","29주 1,200 g으로 태어나 신생아 중환자실에 2개월 있었어요."],
   ["뇌 검사 결과는요?","뇌실내출혈 2등급이 있었는데 흡수됐다고 했어요."],

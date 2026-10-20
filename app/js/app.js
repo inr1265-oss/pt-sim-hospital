@@ -9,15 +9,17 @@ window.App = (() => {
   };
   const MODE = { full: '종합 순회', floor: '층별', practice: '연습' };
   const TINT = { 1: '#E3F3EA', 2: '#E1EEFF', 3: '#FDE8F1', 4: '#FFF3DD' };
-  let user = null, curFloor = 1, hospitalMounted = false;
+  let user = null, curFloor = 1, engine = null, view3d = false;
+  const eng = () => engine || Hospital;
 
   async function boot() {
     await Store.init();
     [1, 2, 3, 4].forEach(f => (PT_CASES[f] || []).forEach(c => c.floor = f));
     if (Admin.loadHandle) Admin.loadHandle();
+    view3d = !!Store.getPref('view3d', false);
     document.title = Store.settings.appName; $('#brand-name').textContent = Store.settings.appName;
     $$('[data-nav]').forEach(b => b.addEventListener('click', () => nav(b.dataset.nav)));
-    $$('.dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); const d = b.dataset.dir; if (d === 'ok') window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); else Hospital.move(d); }));
+    $$('.dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); const d = b.dataset.dir; if (d === 'ok') window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); else eng().move(d); }));
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
     const s = Store.getSession(); if (s) { user = s; show('home'); } else show('auth');
   }
@@ -32,7 +34,7 @@ window.App = (() => {
     if (id === 'home') renderHome();
     if (id === 'admin') Admin.render($('#s-admin'));
     if (id === 'records') renderRecords();
-    if (id === 'hospital') setTimeout(() => Hospital.resize(), 0);
+    if (id === 'hospital') setTimeout(() => eng().resize(), 0);
     window.scrollTo(0, 0);
   }
   async function logout() {
@@ -80,17 +82,23 @@ window.App = (() => {
     const prev = mode === 'practice' ? 0 : (await Store.getResults(user.studentId)).filter(r => r.mode === mode && r.floors === floors.join('+')).length;
     await Store.syncMastered(user.studentId);
     Session.start({ mode, floors, target, user, attempt: prev + 1 });
-    curFloor = (mode === 'practice' && floor) ? floor : floors[0]; mountHospital(); Hospital.setFloor(curFloor); show('hospital'); updateHUD();
+    curFloor = (mode === 'practice' && floor) ? floor : floors[0]; mountHospital(); eng().setFloor(curFloor); show('hospital'); updateHUD();
+    const perStep = Math.max(1, Math.min(5, Number(Store.settings.questionsPerStep) || 3)); const rpf = Session.cfg.roomsPerFloor || 5;
     const ai = Store.geminiAvailable();
     U.modal({ title: mode === 'practice' ? '🎮 연습 모드' : '📝 평가 시작', body: h('div', {},
-      h('p', {}, mode === 'full' ? '1층 문진실부터 시작합니다. 각 층 5개 병실의 환자를 모두 치료한 뒤 층 이동으로 다음 층에 가세요.' : mode === 'floor' ? `${floor}F ${FLOOR[floor].name}에서 ${target}문항이 출제됩니다. 5명의 환자를 모두 치료하면 새 환자가 배정됩니다.` : `${curFloor}F에서 시작합니다. 층 이동 버튼으로 어느 층이든 자유롭게 오갈 수 있고 점수는 저장되지 않습니다.`),
-      h('ul', { class: 'tips' }, h('li', {}, '이동: 병실을 클릭(터치)하면 자동 이동·입장. 방향키/WASD도 가능'), h('li', {}, '각 환자당 2문항(평가 1 + 중재 1), 즉시 채점·해설'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 70}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
+      h('p', {}, mode === 'full' ? `1층 문진실부터 시작합니다. 층마다 ${rpf}개 병실의 환자를 치료한 뒤 층 이동으로 다음 층에 가세요.` : mode === 'floor' ? `${floor}F ${FLOOR[floor].name}에서 ${target}문항이 출제됩니다. 환자 ${rpf}명을 모두 치료하면 새 환자가 배정됩니다.` : `${curFloor}F에서 시작합니다. 층 이동 버튼으로 어느 층이든 자유롭게 오갈 수 있고 점수는 저장되지 않습니다.`),
+      h('ul', { class: 'tips' }, h('li', {}, '이동: 병실을 클릭(터치)하면 자동 이동·입장. 방향키/WASD도 가능'), h('li', {}, `각 환자당 최대 ${perStep * 2}문항(평가 ${perStep} + 중재 ${perStep}), 즉시 채점·해설`), h('li', {}, '🧊 상단 3D 보기 버튼으로 입체 병원으로 전환할 수 있어요'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 70}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
   }
+  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Session.roomInfo(curFloor, i), onEnterRoom: enterRoom, onElevator: elevator, onFail: () => { view3d = false; Store.setPref('view3d', false); engine = null; mountHospital(); eng().setFloor(curFloor); } }; }
   function mountHospital() {
-    if (hospitalMounted) return;
-    Hospital.mount($('#map'), { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Session.roomInfo(curFloor, i), onEnterRoom: enterRoom, onElevator: elevator });
-    hospitalMounted = true;
+    const want = (view3d && window.Hospital3D) ? Hospital3D : Hospital;
+    if (engine === want) return;
+    if (engine) engine.destroy();
+    engine = want; const is3d = engine === window.Hospital3D;
+    $('#map').classList.toggle('hidden', is3d); $('#map3d').classList.toggle('hidden', !is3d);
+    engine.mount(is3d ? $('#map3d') : $('#map'), hospitalOpts());
   }
+  function toggleView() { view3d = !view3d; Store.setPref('view3d', view3d); mountHospital(); eng().setFloor(curFloor); updateHUD(); toast(view3d ? '🧊 3D 병원으로 전환했어요. 병실을 클릭하거나 방향키로 이동하세요.' : '🗺️ 2D 지도로 전환했어요.', 'info'); }
   function enterRoom(i) {
     const info = Session.roomInfo(curFloor, i);
     if (info.status === 'empty') return toast('빈 병실입니다.', 'info');
@@ -114,21 +122,22 @@ window.App = (() => {
         const inExam = Session.cfg.floors.includes(f); const done = inExam && Session.floorDone(f); const cnt = (Session.state.rooms[f] || []).filter(r => r.done).length;
         const here = f === curFloor;
         return h('button', { class: 'elev-btn' + (here ? ' here' : '') + (!inExam ? ' switch' : ''), disabled: here, onClick: () => { m.close(); if (inExam) goFloor(f); else switchFloor(f); } },
-          h('b', {}, `${f}F`), h('span', {}, `${FLOOR[f].icon} ${FLOOR[f].name}`), h('small', { class: 'muted' }, here ? '현재 층' : !inExam ? '이 층 평가로 전환' : done ? '✓ 완료' : `${cnt}/5 완료`));
+          h('b', {}, `${f}F`), h('span', {}, `${FLOOR[f].icon} ${FLOOR[f].name}`), h('small', { class: 'muted' }, here ? '현재 층' : !inExam ? '이 층 평가로 전환' : done ? '✓ 완료' : `${cnt}/${(Session.state.rooms[f] || []).length || 5} 완료`));
       }))), actions: [{ label: '닫기', cls: 'ghost' }] });
   }
   async function switchFloor(f) {
     if (!(await U.confirm(`지금 평가를 끝내고 ${f}F ${FLOOR[f].name} 평가를 새로 시작할까요? (지금까지의 답변은 채점되지 않습니다)`))) return;
     Session.end(); startMode('floor', f);
   }
-  function goFloor(f) { curFloor = f; Hospital.setFloor(f); updateHUD(); toast(`${f}층 ${FLOOR[f].name}에 도착했습니다.`, 'info'); }
+  function goFloor(f) { curFloor = f; eng().setFloor(f); updateHUD(); toast(`${f}층 ${FLOOR[f].name}에 도착했습니다.`, 'info'); }
   function updateHUD() {
     if (!Session.active) return; const p = Session.progress(); const pct = isFinite(p.target) ? Math.min(100, Math.round(p.answered / p.target * 100)) : 0;
     $('#hud-floor').textContent = `${curFloor}F ${FLOOR[curFloor].name} ▾`; $('#hud-floor').onclick = elevator;
     $('#hud-prog').textContent = isFinite(p.target) ? `${p.answered} / ${p.target} 문항` : `${p.answered} 문항 (연습)`;
     $('#hud-bar').style.width = pct + '%';
     $('#hud-score').textContent = p.answered ? `정답률 ${Math.round(p.correct / p.answered * 100)}%` : '정답률 -';
-    $('#hud-rooms').textContent = `이 층 ${(Session.state.rooms[curFloor] || []).filter(r => r.done).length}/5 완료`;
+    $('#hud-rooms').textContent = `이 층 ${(Session.state.rooms[curFloor] || []).filter(r => r.done).length}/${(Session.state.rooms[curFloor] || []).length} 완료`;
+    const bv = $('#btn-view'); if (bv) { bv.textContent = view3d ? '🗺️ 2D 보기' : '🧊 3D 보기'; bv.onclick = toggleView; }
     $('#btn-elev').onclick = elevator;
     $('#btn-quit').textContent = Session.cfg.mode === 'practice' ? '연습 종료' : '종료·채점';
     $('#btn-quit').onclick = async () => { if (Session.cfg.mode === 'practice') return finish(); if (await U.confirm('평가를 중단하고 지금까지의 답변으로 채점할까요? (미답변 문항은 포함되지 않으며 결과가 기록에 남습니다)')) finish(); };

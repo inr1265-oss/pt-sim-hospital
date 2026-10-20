@@ -230,3 +230,10 @@ body[data-screen="auth"] .bottom-nav,body[data-screen="admin"] .bottom-nav{displ
 .chart-table table.grid{min-width:0;font-size:.8rem;margin-top:6px}
 .master-row{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 @media (max-width:760px){.trend-stats{grid-template-columns:repeat(2,1fr)}}
+/* 3D 뷰 · 자유 검사 */
+.hidden{display:none!important}
+#map3d{display:block;width:100%;border-radius:18px;box-shadow:var(--shadow-lg);background:#0f172a;touch-action:none;border:1px solid #D9E1EA}
+.exam-box{margin-top:12px;background:linear-gradient(135deg,#F8F6FF,#FDFCFF);border:1px solid #DDD6FE;border-radius:14px;padding:10px 12px}
+.exam-box .ai-head{display:flex;align-items:center;gap:6px;font-weight:800;color:#5B21B6;font-size:.88rem;margin-bottom:4px}
+.exam-log{display:flex;flex-direction:column;gap:4px;font-size:.88rem}
+.exam-line{padding:6px 10px;border-radius:10px;background:#fff;border:1px solid #EDE9FE}.exam-line.me{background:var(--g-mist);border-color:var(--g-line)}.exam-line b{color:var(--g-deep)}

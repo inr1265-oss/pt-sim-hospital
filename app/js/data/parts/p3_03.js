@@ -2,7 +2,7 @@ window.PT_CASES = window.PT_CASES || {}; window.PT_CASES[3] = window.PT_CASES[3]
 window.PT_CASES[3].push(
 {
  id:"3f-07", title:"척수수막류(이분척추) L4", sub:"보조기 보행 · 2세", dx:"척수수막류(myelomeningocele) L4 운동 수준, 뇌실복막 션트 상태",
- patient:{name:"예준이", age:2, sex:"남", job:"유아", region:"legs", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"윤예준", age:2, sex:"남", job:"유아", region:"legs", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"다리 힘이 약해서 잡고 서려고만 해요.", chat:[
   ["출생 후 경과는요?","태어나자마자 등 수술을 했고 머리에 션트도 넣었어요."],
   ["다리 움직임은요?","무릎은 펴는데 발목이 잘 안 움직이고 발이 위로 꺾여 있어요."],
@@ -21,7 +21,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-08", title:"뒤시엔느 근디스트로피", sub:"보행기(ambulatory) · 7세", dx:"뒤시엔느 근디스트로피(DMD), 보행 가능 단계",
- patient:{name:"시우", age:7, sex:"남", job:"초등학교 1학년", region:"legs", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"장시우", age:7, sex:"남", job:"초등학교 1학년", region:"legs", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"계단 오르기가 힘들고 자주 넘어져요.", chat:[
   ["언제부터 이상했나요?","3세쯤부터 뒤뚱거리며 걸었고 요즘은 계단을 못 올라가요."],
   ["넘어지면 어떻게 일어나나요?","손으로 무릎을 짚고 허벅지를 타고 올라오듯 일어나요."],
@@ -40,7 +40,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-09", title:"선천성 근육성 기운목", sub:"목빗근 단축 · 3개월", dx:"오른쪽 선천성 근육성 기운목(torticollis), 자세성 사두증 동반",
- patient:{name:"서아", age:0.25, ageText:"3개월", sex:"여", job:"영아", region:"head", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"임서아", age:0.25, ageText:"3개월", sex:"여", job:"영아", region:"head", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"머리가 항상 한쪽으로 기울어 있어요.", chat:[
   ["언제부터 그랬나요?","태어나고 한 달쯤부터 머리가 오른쪽으로 기울고 왼쪽만 봐요."],
   ["출생력은요?","머리가 커서 겸자 분만을 했어요. 둔위였대요."],
@@ -59,7 +59,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-10", title:"신생아 위팔신경얼기 마비(Erb 마비)", sub:"C5-C6 · 2개월", dx:"오른쪽 위쪽 위팔신경얼기 마비(Erb-Duchenne palsy)",
- patient:{name:"이안이", age:0.17, ageText:"2개월", sex:"남", job:"영아", region:"shoulder_R", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"한이안", age:0.17, ageText:"2개월", sex:"남", job:"영아", region:"shoulder_R", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"태어날 때부터 오른팔이 늘어져 있고 안 움직여요.", chat:[
   ["출생 시 상황은요?","4.3 kg 거대아였고 어깨가 걸려서 힘들게 나왔다고 했어요."],
   ["팔 움직임은요?","어깨랑 팔꿈치는 안 움직이는데 손가락은 꼼지락거려요."],

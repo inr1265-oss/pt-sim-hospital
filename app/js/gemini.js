@@ -52,11 +52,18 @@ window.Gemini = (() => {
     const prompt = `[사례 정보(비공개, 대답의 근거로만 사용)]\n진단: ${c.dx}\n주호소: ${c.S.chief}\n문진 내용: ${c.S.chat.map(([q, a]) => `Q: ${q} → A: ${a}`).join(' / ')}\n검사 소견(환자는 결과를 모름, 증상 묘사에만 참고): ${c.O.map(o => o[0] + ': ' + o[1]).join('; ')}\n\n[지금까지의 대화]\n${(history || []).map(m => (m.role === 'me' ? '치료사: ' : '환자: ') + m.text).join('\n') || '(없음)'}\n\n[치료사의 새 질문] ${userQ}\n\n환자로서 대답:`;
     return ask(prompt, { system, temperature: 0.8 });
   }
-  // ---- 결과 화면 학습 코치 ----
+  // ---- AI 검사 응답: 학생이 자유롭게 입력한 검사·측정에 대해 사례와 일치하는 결과를 보고 ----
+  async function examReply({ case: c, history, userQ }) {
+    const system = '당신은 물리치료 임상 시뮬레이션에서 "검사 결과를 보고하는 시스템"입니다. 학생(치료사)이 시행하겠다고 말한 검사·측정에 대해, 주어진 사례 정보와 일치하는 결과를 임상 기록처럼 간결한 한국어로 보고합니다. 진단명이나 정답을 직접 말하지 말고, 결과(수치·양성/음성·관찰 소견)만 보고합니다. 사례에 없는 검사는 그 진단의 환자라면 나올 법한 결과를 그럴듯하게 만들되 사례와 모순되지 않게 합니다. 검사가 금기이거나 위험하면 결과 대신 짧게 경고합니다. 치료사가 할 검사가 아닌 요청(정답·진단 묻기)은 "그건 평가 단계에서 직접 판단하세요"로 넘깁니다.';
+    const prompt = `[사례 정보(비공개)]\n진단: ${c.dx}\n단계: ${c.A.stage}\n주호소: ${c.S.chief}\n등록된 검사 목록(index: 검사명 → 결과):\n${c.O.map((o, i) => `${i}: ${o[0]} → ${o[1]}`).join('\n')}\n\n[지금까지 시행한 검사 대화]\n${(history || []).map(m => (m.role === 'me' ? '치료사: ' : '결과: ') + m.text).join('\n') || '(없음)'}\n\n[치료사가 시행하는 검사] ${userQ}\n\nJSON으로만 답하세요: {"result":"보고 문장(1~3문장, 수치 포함)","matched":[등록된 검사 중 이번 요청에 해당하는 index 배열, 없으면 []]}`;
+    const text = await ask(prompt, { system, json: true, temperature: 0.4 });
+    try { const j = JSON.parse(text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()); return { result: String(j.result || ''), matched: Array.isArray(j.matched) ? j.matched.map(Number).filter(n => n >= 0 && n < c.O.length) : [] }; }
+    catch (e) { return { result: text, matched: [] }; }
+  }  // ---- 결과 화면 학습 코치 ----
   async function coach(result) {
     const wrong = (result.wrong || []).slice(0, 12).map(w => `- [${w.floor}F ${w.caseTitle}] ${w.stem} / 학생 답: ${w.chosen} / 정답: ${w.answer}`).join('\n');
     const prompt = `학생의 시뮬레이션 평가 결과입니다.\n점수: ${result.score}점 (${result.total}문항 중 ${result.correct} 정답, 합격 기준 ${result.passScore}점)\n층별: ${Object.entries(result.byFloor || {}).map(([f, v]) => `${f}F ${v.correct}/${v.total}`).join(', ')}\n오답 목록:\n${wrong || '(없음)'}\n\n이 학생을 위한 학습 코칭을 작성하세요. 형식: 1) 한 줄 총평 2) 오답에서 드러난 약한 개념 2~3가지(각 1~2문장, 왜 헷갈리는지와 구분 포인트) 3) 다음 응시 전 복습 과제 3개(구체적 키워드) 4) 격려 한 줄. 전체 10문장 이내, 마크다운 기호 없이 줄바꿈으로 구분.`;
     return ask(prompt, { temperature: 0.5 });
   }
-  return { ask, explain, explainCached, followUp, patientReply, coach, generateCase };
+  return { ask, explain, explainCached, followUp, patientReply, examReply, coach, generateCase };
 })();

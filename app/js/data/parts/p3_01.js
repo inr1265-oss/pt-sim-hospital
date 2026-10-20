@@ -2,7 +2,7 @@ window.PT_CASES = window.PT_CASES || {}; window.PT_CASES[3] = window.PT_CASES[3]
 window.PT_CASES[3].push(
 {
  id:"3f-01", title:"경직형 양측마비 뇌성마비", sub:"GMFCS II · 3세", dx:"경직형 양측마비(spastic diplegia) 뇌성마비, GMFCS II",
- patient:{name:"서준이", age:3, sex:"남", job:"어린이집 재원", region:"legs", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"김서준", age:3, sex:"남", job:"어린이집 재원", region:"legs", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"까치발로 걷고 다리가 서로 꼬여요. 손 잡아줘야 걸어요.", chat:[
   ["출생력은 어떠셨어요?","32주 조산으로 1.6 kg에 태어나 신생아 중환자실에 한 달 있었어요."],
   ["걷기는 어느 정도 되나요?","손을 잡아주면 걸어요. 까치발로 걷고 다리가 서로 꼬여요."],
@@ -21,7 +21,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-02", title:"운동이상형(무정위운동형) 뇌성마비", sub:"GMFCS III · 5세", dx:"운동이상형(dyskinetic, 무정위운동형) 뇌성마비, GMFCS III",
- patient:{name:"하은이", age:5, sex:"여", job:"유치원 재원", region:"whole", posture:"supine", pediatric:true, informant:"아버지"},
+ patient:{name:"이하은", age:5, sex:"여", job:"유치원 재원", region:"whole", posture:"supine", pediatric:true, informant:"아버지"},
  S:{chief:"손발이 자꾸 뒤틀리고 앉아 있기 힘들어해요.", chat:[
   ["출생력은 어떠셨어요?","만삭이었는데 황달이 심해서 광선치료를 오래 받았어요."],
   ["움직임은 어떤가요?","가만히 있을 때는 덜한데 뭘 하려고 하면 손발이 막 뒤틀려요."],
@@ -40,7 +40,7 @@ window.PT_CASES[3].push(
 },
 {
  id:"3f-03", title:"운동실조형 뇌성마비", sub:"GMFCS II · 6세", dx:"운동실조형(ataxic) 뇌성마비",
- patient:{name:"민준이", age:6, sex:"남", job:"초등학교 입학 예정", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
+ patient:{name:"박민준", age:6, sex:"남", job:"초등학교 입학 예정", region:"whole", posture:"supine", pediatric:true, informant:"어머니"},
  S:{chief:"걷긴 하는데 비틀거리고 자주 넘어져요.", chat:[
   ["걷기는 어떤가요?","혼자 걷긴 하는데 술 취한 것처럼 비틀거리고 자주 넘어져요."],
   ["손 사용은요?","컵을 잡으려 하면 손이 떨려서 자주 쏟아요."],

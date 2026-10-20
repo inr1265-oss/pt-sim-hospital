@@ -7,7 +7,7 @@ window.PT_CASES[3] = [
   "sub": "GMFCS II · 3세",
   "dx": "경직형 양측마비(spastic diplegia) 뇌성마비, GMFCS II",
   "patient": {
-   "name": "서준이",
+   "name": "김서준",
    "age": 3,
    "sex": "남",
    "job": "어린이집 재원",
@@ -193,7 +193,7 @@ window.PT_CASES[3] = [
   "sub": "GMFCS III · 5세",
   "dx": "운동이상형(dyskinetic, 무정위운동형) 뇌성마비, GMFCS III",
   "patient": {
-   "name": "하은이",
+   "name": "이하은",
    "age": 5,
    "sex": "여",
    "job": "유치원 재원",
@@ -379,7 +379,7 @@ window.PT_CASES[3] = [
   "sub": "GMFCS II · 6세",
   "dx": "운동실조형(ataxic) 뇌성마비",
   "patient": {
-   "name": "민준이",
+   "name": "박민준",
    "age": 6,
    "sex": "남",
    "job": "초등학교 입학 예정",
@@ -565,7 +565,7 @@ window.PT_CASES[3] = [
   "sub": "저긴장 · 10개월",
   "dx": "다운증후군, 저긴장성 운동발달 지연",
   "patient": {
-   "name": "지아",
+   "name": "최지아",
    "age": 0.8,
    "ageText": "10개월",
    "sex": "여",
@@ -751,7 +751,7 @@ window.PT_CASES[3] = [
   "sub": "대근육 지연 · 18개월",
   "dx": "대근육 운동발달 지연(원인 미상)",
   "patient": {
-   "name": "도현이",
+   "name": "정도현",
    "age": 1.5,
    "ageText": "18개월",
    "sex": "남",
@@ -938,7 +938,7 @@ window.PT_CASES[3] = [
   "sub": "GMFCS I · MACS II · 4세",
   "dx": "오른쪽 경직형 편마비(spastic hemiplegia) 뇌성마비",
   "patient": {
-   "name": "수아",
+   "name": "강수아",
    "age": 4,
    "sex": "여",
    "job": "유치원 재원",
@@ -1124,7 +1124,7 @@ window.PT_CASES[3] = [
   "sub": "보조기 보행 · 2세",
   "dx": "척수수막류(myelomeningocele) L4 운동 수준, 뇌실복막 션트 상태",
   "patient": {
-   "name": "예준이",
+   "name": "윤예준",
    "age": 2,
    "sex": "남",
    "job": "유아",
@@ -1310,7 +1310,7 @@ window.PT_CASES[3] = [
   "sub": "보행기(ambulatory) · 7세",
   "dx": "뒤시엔느 근디스트로피(DMD), 보행 가능 단계",
   "patient": {
-   "name": "시우",
+   "name": "장시우",
    "age": 7,
    "sex": "남",
    "job": "초등학교 1학년",
@@ -1496,7 +1496,7 @@ window.PT_CASES[3] = [
   "sub": "목빗근 단축 · 3개월",
   "dx": "오른쪽 선천성 근육성 기운목(torticollis), 자세성 사두증 동반",
   "patient": {
-   "name": "서아",
+   "name": "임서아",
    "age": 0.25,
    "ageText": "3개월",
    "sex": "여",
@@ -1676,7 +1676,7 @@ window.PT_CASES[3] = [
   "sub": "C5-C6 · 2개월",
   "dx": "오른쪽 위쪽 위팔신경얼기 마비(Erb-Duchenne palsy)",
   "patient": {
-   "name": "이안이",
+   "name": "한이안",
    "age": 0.17,
    "ageText": "2개월",
    "sex": "남",
@@ -1863,7 +1863,7 @@ window.PT_CASES[3] = [
   "sub": "GMFCS V · 8세",
   "dx": "경직형 사지마비(spastic quadriplegia) 뇌성마비, GMFCS V, 엉덩관절 아탈구 위험",
   "patient": {
-   "name": "현우",
+   "name": "오현우",
    "age": 8,
    "sex": "남",
    "job": "특수학교 2학년",
@@ -2237,7 +2237,7 @@ window.PT_CASES[3] = [
   "sub": "저긴장 · 6개월",
   "dx": "양성 선천성 근긴장저하(benign congenital hypotonia), 운동발달 지연",
   "patient": {
-   "name": "서윤이",
+   "name": "신서윤",
    "age": 0,
    "ageText": "6개월",
    "sex": "여",
@@ -2424,7 +2424,7 @@ window.PT_CASES[3] = [
   "sub": "감각 처리 · 4세",
   "dx": "자폐스펙트럼장애, 대근육 운동발달 지연·운동 계획 장애",
   "patient": {
-   "name": "하율이",
+   "name": "권하율",
    "age": 4,
    "sex": "남",
    "job": "어린이집",
@@ -2610,7 +2610,7 @@ window.PT_CASES[3] = [
   "sub": "깁스 제거 후 · 7세",
   "dx": "왼쪽 위팔뼈 관절융기위 골절(Gartland II) 경피 핀 고정 후 4주, 팔꿈치 강직",
   "patient": {
-   "name": "채원이",
+   "name": "송채원",
    "age": 7,
    "sex": "여",
    "job": "초등학교 1학년",
@@ -2796,7 +2796,7 @@ window.PT_CASES[3] = [
   "sub": "앉기 가능(sitter) · 3세",
   "dx": "척수성 근위축증(SMA) 2형, 뉴시너센 치료 중",
   "patient": {
-   "name": "지온이",
+   "name": "조지온",
    "age": 3,
    "sex": "여",
    "job": "유아",
@@ -3169,7 +3169,7 @@ window.PT_CASES[3] = [
   "sub": "조산아 · 고위험 영아",
   "dx": "재태 29주 미숙아, 뇌실내출혈 2등급 병력, 교정연령 6개월 발달 추적",
   "patient": {
-   "name": "리안이",
+   "name": "백리안",
    "age": 0,
    "ageText": "교정연령 6개월(생후 9개월)",
    "sex": "남",
