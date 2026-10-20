@@ -73,7 +73,7 @@ window.App = (() => {
       h('div', { class: 'hero' }, h('h2', {}, `안녕하세요, ${user.name} 님 👋`), h('p', { class: 'muted' }, `${Store.settings.schoolName} 시뮬레이션 병원입니다. 환자를 SOAP로 평가하고 중재를 선택하세요. ${target}문항 중 ${passScore}점 이상이면 합격입니다.`),
         h('div', { class: 'row wrap' }, best != null ? h('span', { class: 'tag soft' }, `최고 ${best}점`) : null, my.length ? h('span', { class: 'tag soft' }, `응시 ${my.length}회`) : null, my.some(r => r.pass) ? h('span', { class: 'tag ok' }, '✓ 통과') : null, h('span', { class: 'tag ' + (ai ? 'ai' : 'soft') }, ai ? '🤖 AI 튜터 켜짐' : 'AI 튜터 꺼짐'))),
       p ? h('div', { class: 'card resume' }, h('div', {}, h('b', { text: '진행 중인 평가가 있습니다' }), h('div', { class: 'muted small' }, `${MODE[Session.cfg.mode]} ${Session.cfg.floors.join('·')}F · ${p.answered}${isFinite(p.target) ? ' / ' + p.target : ''} 문항 답변`)), h('div', { class: 'row' }, h('button', { class: 'btn primary', onClick: () => show('hospital') }, '이어하기'), h('button', { class: 'btn ghost', onClick: async () => { if (await U.confirm('진행 중인 평가를 취소할까요? 답변 기록은 저장되지 않습니다.')) { Session.end(); renderHome(); } } }, '취소'))) : null,
-      subjectBar, avatarBar, quick,
+      subjectBar, quick,
       h('h3', { text: '🏥 종합 모드' }), modeCard(`종합 순회 평가 (${target}문항)`, '1층 문진실부터 4층까지 모든 층을 돌며 평가합니다. 층마다 5명의 환자가 랜덤 배정됩니다.', '🏥', () => startMode('full'), '정식 평가'),
       h('details', { class: 'more', open: !subject }, h('summary', {}, subject ? '다른 층(과목) 보기' : '🚪 층별 집중 모드'), h('div', { class: 'grid2' }, [1, 2, 3, 4].filter(f => f !== subject).map(f => modeCard(`${f}F ${FLOOR[f].name}`, FLOOR[f].desc, FLOOR[f].icon, () => startMode('floor', f), null, TINT[f])))),
       h('h3', { text: '🎮 연습 모드' }), modeCard('자유 탐색 (점수 미저장)', '모든 층을 자유롭게 오가며 환자를 만나 보세요. 정답·해설은 보여주지만 성적은 저장되지 않습니다.', '🎮', () => startMode('practice', subject || 1)),
@@ -95,7 +95,7 @@ window.App = (() => {
       h('ul', { class: 'tips' }, h('li', {}, `각 환자당 최대 ${perStep * 2}문항(평가 ${perStep} + 중재 ${perStep}), 즉시 채점·해설`), h('li', {}, '🧊 1인칭 3D 병원: ↑↓(W/S) 걷기, ←→ 돌기, 화면 드래그로 둘러보기. 병실을 클릭하면 침대까지 자동 이동'), h('li', {}, '👆 침대의 환자를 클릭하면 평가 시작 · 병실은 01호부터 순서대로 진행'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 70}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
   }
   // 치료사 캐릭터(성별·외부 GLB)
-  const avatarSex = () => Store.getPref('avatar:' + (user ? user.studentId : 'anon'), (user && user.sex) || '여');
+  const avatarSex = () => (user && user.sex) || Store.getPref('avatar:' + (user ? user.studentId : 'anon'), '여'); // 회원가입 때 고른 성별(계정)이 우선
   const PUB = () => window.PT_CONFIG || {};
   const patientGlbInfo = () => { const S = Store.settings, C = PUB(); const g = k => S[k] || C[k] || ''; return { F: g('patientGlbF'), M: g('patientGlbM'), child: g('patientGlbChild'), elderF: g('patientGlbElderF'), elderM: g('patientGlbElderM') }; };
   const playerInfo = () => { const sex = avatarSex(); const glb = sex === '남' ? (Store.settings.avatarGlbM || PUB().avatarGlbM || '') : (Store.settings.avatarGlbF || PUB().avatarGlbF || ''); return { name: user ? user.name : '치료사', sex, glb }; };

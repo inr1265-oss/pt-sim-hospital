@@ -287,6 +287,8 @@ body[data-screen="hospital"] .qcard .q-meta .tag{background:linear-gradient(135d
 body[data-screen="hospital"] .choice{border-radius:10px}
 body[data-screen="hospital"] .chat{box-shadow:0 6px 18px rgba(0,0,0,.25)}
 body[data-screen="hospital"] .tests .test-card,body[data-screen="hospital"] .icf,body[data-screen="hospital"] .stage-chip{box-shadow:0 4px 14px rgba(0,0,0,.2)}
+body[data-screen="hospital"] .icf{background:#fff;border-color:rgba(255,255,255,.3)}body[data-screen="hospital"] .icf th{background:#E8F3EE;color:#0B5E3B}body[data-screen="hospital"] .icf td{color:#1F2937;background:#fff}body[data-screen="hospital"] .icf td:first-child{background:#F3F7F5;color:#0B5E3B}
+body[data-screen="hospital"] .soap-body h3,body[data-screen="hospital"] .soap-body h4,body[data-screen="hospital"] .soap-body .section-title{color:#E6EDF3}
 body[data-screen="hospital"] .chips .chip{background:rgba(255,255,255,.95)}
 body[data-screen="hospital"] .btn.primary.block{background:linear-gradient(135deg,#6D5BD0,#8B5CF6);box-shadow:0 8px 20px rgba(139,92,246,.4)}
 body.panel-open[data-screen="hospital"]::after{background:rgba(5,10,20,.15)}

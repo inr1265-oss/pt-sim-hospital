@@ -95,7 +95,7 @@ window.Hospital3D = (() => {
     g.userData.legs = legs; g.userData.arms = arms;
     // 이름표(머리 위)
     const tag = sprite([{ text: `${female ? '👩‍⚕️' : '👨‍⚕️'} ${info.name} 치료사` }], { w: 1.4, border: '#0F7A4D', depthTest: false }); tag.position.set(0, 2.02, 0); tag.renderOrder = 11; g.add(tag); world.nameTag = tag;
-    if (info.glb) loadGlbAvatar(info.glb, g, female);
+    loadGlbAvatar([info.glb, female ? CDN_GLB.F : CDN_GLB.M].filter(Boolean), g, female);
   }
   // ---------- GLB 공용 로더(치료사·환자) ----------
   const ensureGltf = () => (THREE.GLTFLoader ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'; sc.onload = res; sc.onerror = () => rej(new Error('GLTFLoader 로드 실패')); document.head.append(sc); }));
@@ -104,25 +104,63 @@ window.Hospital3D = (() => {
   function probeGlb(url) { if (glbMissing.has(url)) return Promise.reject(glbAbsent(url)); if (/^(https?:)?\/\//.test(url)) return Promise.resolve(); return fetch(url, { method: 'HEAD', cache: 'no-store' }).then(r => { if (!r.ok && r.status !== 405) { glbMissing.add(url); throw glbAbsent(url); } }, () => { glbMissing.add(url); throw glbAbsent(url); }); }
   function loadGlb(url) { if (window.THREE && THREE.Cache) THREE.Cache.enabled = true; return probeGlb(url).then(ensureGltf).then(() => new Promise((res, rej) => new THREE.GLTFLoader().load(url, res, undefined, () => rej(new Error('모델을 내려받지 못했어요 (URL·CORS 확인)'))))); }
   function findBone(model, names) { let b = null; model.traverse(o => { if (!b && o.isBone && names.some(n => o.name === n || o.name.endsWith(n))) b = o; }); return b; }
-  function humanBones(model) { const f = n => findBone(model, [n, 'mixamorig' + n]); return { hips: f('Hips'), lUp: f('LeftUpLeg'), rUp: f('RightUpLeg'), lLeg: f('LeftLeg'), rLeg: f('RightLeg'), lArm: f('LeftArm'), rArm: f('RightArm'), lFore: f('LeftForeArm'), rFore: f('RightForeArm') }; }
+  function humanBones(model) { const f = n => findBone(model, [n, 'mixamorig' + n]); return { hips: f('Hips'), lUp: f('LeftUpLeg'), rUp: f('RightUpLeg'), lLeg: f('LeftLeg'), rLeg: f('RightLeg'), lArm: f('LeftArm'), rArm: f('RightArm'), lFore: f('LeftForeArm'), rFore: f('RightForeArm'), lHand: f('LeftHand'), rHand: f('RightHand'), lFoot: f('LeftFoot'), rFoot: f('RightFoot') }; }
+  // 뼈가 어떤 축으로 리깅됐든 동작하도록, 뼈→자식뼈 방향을 원하는 월드 방향으로 돌림
+  function aimBone(bone, child, dirWorld) {
+    bone.updateWorldMatrix(true, false); child.updateWorldMatrix(true, false);
+    const a = new THREE.Vector3(), c = new THREE.Vector3(); bone.getWorldPosition(a); child.getWorldPosition(c);
+    const cur = c.sub(a); if (cur.lengthSq() < 1e-8) return; cur.normalize();
+    const q = new THREE.Quaternion().setFromUnitVectors(cur, dirWorld.clone().normalize());
+    const pq = new THREE.Quaternion(); if (bone.parent) bone.parent.getWorldQuaternion(pq); const pqi = pq.clone().invert();
+    bone.quaternion.premultiply(pq).premultiply(q).premultiply(pqi); bone.userData.baseQ = bone.quaternion.clone();
+  }
+  function armsDown(b) { // T포즈/A포즈 팔을 몸 옆으로 내림(약간 바깥쪽)
+    const hips = new THREE.Vector3(); if (b.hips) b.hips.getWorldPosition(hips);
+    [[b.lArm, b.lFore, b.lHand], [b.rArm, b.rFore, b.rHand]].forEach(([arm, fore, hand]) => {
+      if (!arm || !fore) return; const s = new THREE.Vector3(); arm.getWorldPosition(s); const out = s.sub(hips); out.y = 0; if (out.lengthSq() < 1e-6) out.set(1, 0, 0); out.normalize();
+      aimBone(arm, fore, new THREE.Vector3(0, -1, 0).addScaledVector(out, .2));
+      if (hand) aimBone(fore, hand, new THREE.Vector3(0, -1, 0).addScaledVector(out, .45));
+    });
+  }
+  function swing(bone, angle) { if (!bone) return; if (!bone.userData.baseQ) bone.userData.baseQ = bone.quaternion.clone(); bone.quaternion.copy(bone.userData.baseQ).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle)); }
   function normalizeHeight(model, target) {
     model.updateMatrixWorld(true); let minY = Infinity, maxY = -Infinity; const v = new THREE.Vector3();
     model.traverse(o => { if (o.isBone) { o.getWorldPosition(v); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); } });
     if (!isFinite(minY) || maxY - minY < .05) { const bb = new THREE.Box3().setFromObject(model); minY = bb.min.y; maxY = bb.max.y; }
     const h = (maxY - minY) || 1; const k = target / h; model.scale.setScalar(k); model.position.y = -minY * k; model.updateMatrixWorld(true); return k;
   }
-  const patientGlbUrls = info => { const u = (typeof opts.patientGlb === 'function' ? opts.patientGlb() : opts.patientGlb) || {}; const elderly = !info.pediatric && Number(info.age) >= 60; const list = info.pediatric ? [u.child] : elderly ? (info.sex === '남' ? [u.elderM, u.M] : [u.elderF, u.F]) : (info.sex === '남' ? [u.M] : [u.F]); return [...new Set(list.filter(Boolean))]; }; // 앞의 파일이 없으면 다음 후보로
+  const patientGlbUrls = info => { const u = (typeof opts.patientGlb === 'function' ? opts.patientGlb() : opts.patientGlb) || {}; const elderly = !info.pediatric && Number(info.age) >= 60; const cdn = info.sex === '남' ? CDN_GLB.M : CDN_GLB.F; const list = info.pediatric ? [u.child] : elderly ? (info.sex === '남' ? [u.elderM, u.M, cdn] : [u.elderF, u.F, cdn]) : (info.sex === '남' ? [u.M, cdn] : [u.F, cdn]); return [...new Set(list.filter(Boolean))]; }; // 앞의 파일이 없으면 다음 후보로
   const patientGlbUrl = info => patientGlbUrls(info)[0] || '';
+  // 기본 사람 모델(리깅된 공개 GLB, three.js 예제 저장소·jsDelivr): 저장소 assets/models 에 파일이 없을 때 마지막 후보
+  const CDN_GLB = { F: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/models/gltf/Michelle.glb', M: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/models/gltf/readyplayer.me.glb' };
+  // 옷 입히기: Ready Player Me 계열(Wolf3D_*) 메시는 상의·하의를 단색으로 바꿔 치료복/환자복처럼, 모자는 숨김
+  function dressModel(model, kind) {
+    const top = kind === 'therapist' ? '#2E9C8B' : '#BFD7EA', bottom = kind === 'therapist' ? '#227B6E' : '#BFD7EA';
+    model.traverse(o => {
+      if (!o.isMesh) return; const nm = o.name || '';
+      if (/Headwear|Glasses/i.test(nm)) { o.visible = false; return; }
+      if (/Beard/i.test(nm) && kind === 'therapist') { o.visible = false; return; }
+      if (/^Ch0\d/.test(nm) && kind === 'therapist' && o.material && o.material.map && o.material.map.image && !o.material.userData.recolored) { // Mixamo 'Michelle' 같은 단일 텍스처 모델: 노란 바지만 치료복 색으로
+        try { const img = o.material.map.image; const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const x = cv.getContext('2d'); x.drawImage(img, 0, 0); const id = x.getImageData(0, 0, cv.width, cv.height); const d = id.data;
+          for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], bl = d[i + 2]; const mx = Math.max(r, g, bl), mn = Math.min(r, g, bl); if (mx === mn || mx === 0) continue; const sat = (mx - mn) / mx; let h = mx === r ? ((g - bl) / (mx - mn)) % 6 : mx === g ? (bl - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4; h *= 60; if (h < 0) h += 360; if (sat > .35 && h >= 38 && h <= 68) { const l = mx / 255; d[i] = Math.round(60 * l); d[i + 1] = Math.round(170 * l); d[i + 2] = Math.round(152 * l); } }
+          x.putImageData(id, 0, 0); const m = o.material.clone(); const tx = new THREE.CanvasTexture(cv); tx.flipY = false; tx.encoding = o.material.map.encoding; m.map = tx; m.userData.recolored = true; m.needsUpdate = true; o.material = m; } catch (e) { /* 실패하면 원본 유지 */ }
+        return;
+      }
+      if (/Outfit_Top|Outfit_Bottom|Outfit_Footwear/i.test(nm) && o.material) {
+        const m = o.material.clone(); m.map = null; m.color = new THREE.Color(/Top/i.test(nm) ? top : /Bottom/i.test(nm) ? bottom : '#F3F4F6'); m.roughness = .85; m.metalness = 0; m.needsUpdate = true; o.material = m;
+      }
+    });
+  }
   let glbWarned = false;
   function applyPatientGlb(room, info, bx, bz, topY, type) {
     const urls = patientGlbUrls(info); if (!urls.length || !room.patient) return; const tryLoad = k => loadGlb(urls[k]).catch(e => { if (e.silent && k + 1 < urls.length) return tryLoad(k + 1); throw e; }); const pose = room.pose; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .3 : .36);
     tryLoad(0).then(gltf => {
       if (!world.rooms.includes(room)) return; const model = gltf.scene; normalizeHeight(model, info.pediatric ? (Number(info.age) < 2 ? .8 : 1.15) : 1.7); const b = humanBones(model);
       const wrap = new THREE.Group(); wrap.add(model); // model: 발이 원점, 정면 +z
-      if (b.lArm) b.lArm.rotation.z = -1.15; if (b.rArm) b.rArm.rotation.z = 1.15; // T포즈 팔 내리기
+      armsDown(b); // T포즈 팔 내리기
       if (pose === 'sitting') {
         if (b.lUp && b.rUp && b.hips) {
-          b.lUp.rotation.x -= 1.5; b.rUp.rotation.x -= 1.5; if (b.lLeg) b.lLeg.rotation.x += 1.5; if (b.rLeg) b.rLeg.rotation.x += 1.5;
+          const fwd = new THREE.Vector3(0, 0, 1); [[b.lUp, b.lLeg], [b.rUp, b.rLeg]].forEach(([up, leg]) => { if (up && leg) aimBone(up, leg, fwd); }); [[b.lLeg, b.lFoot], [b.rLeg, b.rFoot]].forEach(([leg, foot]) => { if (leg && foot) aimBone(leg, foot, new THREE.Vector3(0, -1, 0)); }); // 넙다리 앞으로, 종아리 아래로
           model.updateMatrixWorld(true); const hp = new THREE.Vector3(); b.hips.getWorldPosition(hp);
           wrap.position.set(bx + edgeX, topY + .06 - hp.y, bz + .1); wrap.rotation.y = Math.PI / 2;
         } else { wrap.position.set(bx + edgeX + .5, 0, bz + .1); wrap.rotation.y = Math.PI / 2; } // 리깅이 없으면 침대 옆에 서 있음
@@ -130,20 +168,21 @@ window.Hospital3D = (() => {
         wrap.rotation.x = -Math.PI / 2; if (pose === 'prone') wrap.rotateOnWorldAxis(new THREE.Vector3(0, 0, 1), Math.PI);
         wrap.position.set(bx, topY + (pose === 'prone' ? .16 : .13), bz + .95);
       }
-      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.userData.room = room.i; o.userData.patient = true; world.clickables.push(o); } });
+      dressModel(model, 'patient'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.userData.room = room.i; o.userData.patient = true; world.clickables.push(o); } });
       room.patient.visible = false; room.glb = wrap; G.add(wrap);
     }).catch(e => { if (e.silent) return; if (!glbWarned && U && U.toast) { glbWarned = true; U.toast('환자 모델 로드 실패: ' + e.message + ' (내장 환자 사용)', 'err'); } });
   }
-  function loadGlbAvatar(url, g, female) {
-    loadGlb(url).then(gltf => {
+  function loadGlbAvatar(urls, g, female) {
+    const list = Array.isArray(urls) ? urls : [urls]; const tryLoad = k => loadGlb(list[k]).catch(e => { if (e.silent && k + 1 < list.length) return tryLoad(k + 1); throw e; });
+    tryLoad(0).then(gltf => {
       if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.7); model.rotation.y = Math.PI; // 보통 +z를 바라봄 → -z로
-      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+      dressModel(model, 'therapist'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
       g.children.forEach(ch => { if (ch !== world.nameTag) ch.visible = false; }); g.add(model);
-      const b = humanBones(model); world.bones = b; if (b.lArm) b.lArm.rotation.z = -1.15; if (b.rArm) b.rArm.rotation.z = 1.15; // T포즈 → 팔 내리기
+      const b = humanBones(model); world.bones = b; armsDown(b); // T포즈 → 팔 내리기
     }).catch(e => { if (e.silent) return; if (U && U.toast) U.toast('외부 아바타 로드 실패: ' + e.message + ' (내장 캐릭터 사용)', 'err'); });
   }
   function setPlayer() { if (built) buildAvatar(); }
-  function clearGroup() { if (G) { scene.remove(G); G.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && !m.map.userData.shared) m.map.dispose(); m.dispose(); }); } }); } G = new THREE.Group(); scene.add(G); world.rooms = []; world.solids = []; world.clickables = []; world.walls = []; world.labelKey = ''; }
+  function clearGroup() { if (G) { scene.remove(G); G.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && !(m.map.userData && m.map.userData.shared)) m.map.dispose(); m.dispose(); }); } }); } G = new THREE.Group(); scene.add(G); world.rooms = []; world.solids = []; world.clickables = []; world.walls = []; world.labelKey = ''; }
   function floorTexture(c1, c2) { const cv = document.createElement('canvas'); cv.width = cv.height = 512; const x = cv.getContext('2d'); x.fillStyle = c2; x.fillRect(0, 0, 512, 512); const n = 4, s = 512 / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { x.fillStyle = (i + j) % 2 ? c1 : c2; x.fillRect(i * s + 2, j * s + 2, s - 4, s - 4); } x.fillStyle = 'rgba(255,255,255,.18)'; for (let k = 0; k < 40; k++) x.fillRect(Math.random() * 512, Math.random() * 512, 2, 60); const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; }
   function buildFloor() {
     clearGroup(); const meta = META()[floor] || META()[1];
@@ -467,7 +506,7 @@ window.Hospital3D = (() => {
       const sw = moving ? Math.sin(P.bob) : 0; const legs = av.userData.legs || [], arms = av.userData.arms || [];
       legs.forEach((lg, i) => lg.rotation.x = sw * .6 * (i ? -1 : 1)); arms.forEach((ar, i) => ar.rotation.x = sw * .5 * (i ? 1 : -1));
       av.position.y = moving ? Math.abs(Math.sin(P.bob)) * .03 : 0;
-      if (world.bones) { const b = world.bones; if (b.lUp) b.lUp.rotation.x = sw * .5; if (b.rUp) b.rUp.rotation.x = -sw * .5; if (b.lArm) b.lArm.rotation.x = -sw * .4; if (b.rArm) b.rArm.rotation.x = sw * .4; }
+      if (world.bones) { const b = world.bones; swing(b.lUp, sw * .5); swing(b.rUp, -sw * .5); swing(b.lArm, -sw * .4); swing(b.rArm, sw * .4); }
     }
     // 어깨너머 카메라(벽 뒤로 빠지지 않도록 거리 조절)
     const fx0 = Math.sin(P.yaw), fz0 = -Math.cos(P.yaw); const rx0 = -fz0, rz0 = fx0; const inRoom = P.z < -.2; const DIST = inRoom ? 1.8 : 3.3, SIDE = inRoom ? .85 : .75; const camH = Math.max(1.4, Math.min(2.8, (inRoom ? 2.65 : 2.1) - P.pitch * 1.6)); // 치료실 안에서는 높은 어깨너머 시점으로 침대가 보이게
