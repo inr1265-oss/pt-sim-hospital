@@ -89,7 +89,8 @@ window.Session = (() => {
         };
         const btn = h('button', { class: 'btn primary small', onClick: send }, '질문');
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
-        askRow = h('div', {}, h('div', { class: 'ask-row' }, inp, btn), h('div', { class: 'ai-note' }, '🤖 AI가 환자 역할로 대답합니다. 질문 칩에 없는 내용도 자유롭게 물어보세요.'));
+        const mic = U.speechOK() ? h('button', { class: 'btn ghost small mic-btn', title: '음성으로 질문', onClick: e => { const b = e.currentTarget; U.listen(txt => { inp.value = txt; send(); }, on => b.classList.toggle('rec', on)); } }, '🎤') : null;
+        askRow = h('div', {}, h('div', { class: 'ask-row' }, inp, mic, btn), h('div', { class: 'ai-note' }, '🤖 AI가 환자 역할로 대답합니다. 질문 칩에 없는 내용도 자유롭게 물어보세요.' + (mic ? ' 🎤 버튼으로 말로 질문할 수 있어요.' : '')));
       }
       U.append(body, h('p', { class: 'guide' }, `💬 ${p.informant ? p.informant + '에게' : '환자에게'} 질문해 보세요. 질문 칩을 누르거나${Store.geminiAvailable() ? ' 직접 입력해' : ''} 문진합니다.`), chat, chips, askRow, nextBtn('다음: 객관적 평가(O) →', 'O'));
     }
@@ -117,7 +118,8 @@ window.Session = (() => {
         };
         const btn = h('button', { class: 'btn primary small', onClick: send }, '시행');
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
-        examBox = h('div', { class: 'exam-box' }, h('div', { class: 'ai-head' }, '🤖 자유 검사 (AI가 결과를 보고합니다)'), log, h('div', { class: 'ask-row' }, inp, btn), h('div', { class: 'ai-note' }, '목록에 있는 검사를 입력하면 해당 카드도 함께 열립니다. 목록에 없는 검사는 사례에 맞는 결과를 AI가 생성합니다.'));
+        const mic2 = U.speechOK() ? h('button', { class: 'btn ghost small mic-btn', title: '음성으로 검사 지시', onClick: e => { const b = e.currentTarget; U.listen(txt => { inp.value = txt; send(); }, on => b.classList.toggle('rec', on)); } }, '🎤') : null;
+        examBox = h('div', { class: 'exam-box' }, h('div', { class: 'ai-head' }, '🤖 자유 검사 (AI가 결과를 보고합니다)'), log, h('div', { class: 'ask-row' }, inp, mic2, btn), h('div', { class: 'ai-note' }, '목록에 있는 검사를 입력하면 해당 카드도 함께 열립니다. 목록에 없는 검사는 사례에 맞는 결과를 AI가 생성합니다.'));
       }
       U.append(body, h('p', { class: 'guide' }, '🩺 필요한 검사를 시행하고 결과를 확인하세요.'), h('div', { class: 'row-end' }, h('button', { class: 'btn ghost small', onClick: () => list.querySelectorAll('button:not(:disabled)').forEach(b => b.click()) }, '모두 시행')), list, examBox, nextBtn('다음: 평가(A) →', 'A'));
     }

@@ -21,6 +21,10 @@ window.App = (() => {
     $$('[data-nav]').forEach(b => b.addEventListener('click', () => nav(b.dataset.nav)));
     $$('.dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); const d = b.dataset.dir; if (d === 'ok') window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); else eng().move(d); }));
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => {});
+    // VR 스테이지 도구
+    const helpBtn = $('#vr-help'); if (helpBtn) helpBtn.onclick = showHelp;
+    const shotBtn = $('#vr-shot'); if (shotBtn) shotBtn.onclick = () => { const url = engine && engine.snapshot ? engine.snapshot() : null; if (!url) return toast('캡처할 화면이 없어요.', 'err'); const a = h('a', { href: url, download: `PT_sim_${Date.now()}.png` }); document.body.append(a); a.click(); a.remove(); toast('화면을 저장했어요.', 'ok'); };
+    const micBtn = $('#vr-mic'); if (micBtn) micBtn.onclick = () => { const inp = [...document.querySelectorAll('#case-panel .ask-row input')].find(i => i.offsetParent); if (!inp) return toast('차트를 열고 문진(S) 또는 검사(O) 단계에서 사용하세요.', 'info'); if (!U.speechOK()) return toast('이 브라우저는 음성 인식을 지원하지 않아요 (Chrome/Edge 권장).', 'err'); U.listen(txt => { inp.value = txt; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }, on => micBtn.classList.toggle('rec', on)); };
     const s = Store.getSession(); if (s) { user = s; show('home'); } else show('auth');
   }
   function nav(id) { if (id === 'hospital' && !Session.active) { toast('홈에서 평가 모드를 먼저 선택하세요.', 'info'); return show('home'); } if (id !== 'admin' && !user) return show('auth'); show(id); }
@@ -99,14 +103,17 @@ window.App = (() => {
   const nextRoom = () => (Session.state.rooms[curFloor] || []).findIndex(r => !r.done);
   function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Object.assign(Session.roomInfo(curFloor, i), { next: i === nextRoom() }), player: playerInfo, onEnterRoom: enterRoom, onElevator: elevator, onFail: () => toast('3D 병원을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.', 'err') }; }
   function mountHospital() { if (engine) return; engine = Hospital3D; engine.mount($('#map3d'), hospitalOpts()); }
+  function showHelp() { U.modal({ title: '🎮 조작법', body: h('ul', { class: 'tips' }, h('li', {}, '이동: ↑↓ 또는 W/S 걷기, ←→ 또는 Q/E 돌기, A/D 옆걸음'), h('li', {}, '둘러보기: 화면을 드래그(터치 스와이프)'), h('li', {}, '빠른 이동: 복도 바닥이나 병실을 클릭하면 자동으로 걸어가요'), h('li', {}, '진료 시작: 침대의 환자를 클릭(또는 Enter). 병실은 01호부터 순서대로'), h('li', {}, '🎤 음성: 문진·검사 단계에서 말로 질문/지시 (Chrome/Edge)'), h('li', {}, '📷 캡처: 현재 3D 화면을 PNG로 저장'), h('li', {}, '🛗 층 이동: 상단 버튼 또는 복도 왼쪽 끝 엘리베이터')), actions: [{ label: '확인', cls: 'primary' }] }); }
   function enterRoom(i) {
     const info = Session.roomInfo(curFloor, i);
     if (info.status === 'empty') return toast('빈 병실입니다.', 'info');
     if (info.status === 'done') return toast('이미 치료를 마친 환자입니다. 다른 병실로 이동하세요.', 'info');
     const nx = nextRoom(); if (nx >= 0 && i !== nx) return toast(`순서대로 진행해 주세요. 먼저 ${curFloor}0${nx + 1}호 환자를 진료하세요.`, 'info');
+    if (engine && engine.focus) engine.focus(i);
     Session.open(curFloor, i, afterRoom);
   }
   async function afterRoom() {
+    if (engine && engine.focus) engine.focus(null);
     updateHUD(); const prog = Session.progress();
     if (prog.answered >= prog.target) return finish();
     if (!Session.floorDone(curFloor)) return;
@@ -138,6 +145,7 @@ window.App = (() => {
     $('#hud-bar').style.width = pct + '%';
     $('#hud-score').textContent = p.answered ? `정답률 ${Math.round(p.correct / p.answered * 100)}%` : '정답률 -';
     $('#hud-rooms').textContent = `이 층 ${(Session.state.rooms[curFloor] || []).filter(r => r.done).length}/${(Session.state.rooms[curFloor] || []).length} 완료`;
+    const vm = $('#vr-module'); if (vm) { const rooms = Session.state.rooms[curFloor] || []; const nx = rooms.findIndex(r => !r.done); vm.textContent = nx >= 0 ? `${FLOOR[curFloor].short} 모듈 ${nx + 1}/${rooms.length} · ${rooms[nx].case.title}` : `${curFloor}F 모든 환자 치료 완료 🎉`; }
     $('#btn-elev').onclick = elevator;
     $('#btn-quit').textContent = Session.cfg.mode === 'practice' ? '연습 종료' : '종료·채점';
     $('#btn-quit').onclick = async () => { if (Session.cfg.mode === 'practice') return finish(); if (await U.confirm('평가를 중단하고 지금까지의 답변으로 채점할까요? (미답변 문항은 포함되지 않으며 결과가 기록에 남습니다)')) finish(); };

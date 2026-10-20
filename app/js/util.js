@@ -63,5 +63,14 @@ window.U = (() => {
   const isTouch = (window.matchMedia && matchMedia('(pointer: coarse)').matches) || 'ontouchstart' in window;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const circled = ['①', '②', '③', '④', '⑤'];
+  // 음성 입력(Web Speech API, Chrome/Edge/Safari). 반환: 지원 여부
+  const speechOK = () => !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+  function listen(onText, onState) {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition; if (!SR) return false;
+    const r = new SR(); r.lang = 'ko-KR'; r.interimResults = false; r.maxAlternatives = 1;
+    r.onresult = e => { try { onText(e.results[0][0].transcript); } catch (x) { /* ignore */ } };
+    r.onend = () => { if (onState) onState(false); }; r.onerror = () => { if (onState) onState(false); };
+    try { r.start(); if (onState) onState(true); return true; } catch (e) { return false; }
+  }
   return { $, $$, h, append, shuffle, pick, uid, fmtDate, esc, sha256, toast, modal, confirm, downloadBlob, isTouch, sleep, circled };
 })();

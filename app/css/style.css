@@ -243,3 +243,51 @@ body[data-screen="auth"] .bottom-nav,body[data-screen="admin"] .bottom-nav{displ
 .fp-hint{position:absolute;left:50%;bottom:26px;transform:translateX(-50%) translateY(6px);background:rgba(20,32,26,.85);color:#fff;font-weight:700;font-size:.9rem;padding:8px 14px;border-radius:999px;opacity:0;transition:.2s;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;z-index:3}
 .fp-hint.show{opacity:1;transform:translateX(-50%)}
 #map.hidden ~ .fp-cross, #map3d.hidden ~ .fp-cross, #map3d.hidden ~ .fp-hint{display:none}
+/* VR 교육 시뮬레이션 스타일(병원 화면) */
+body[data-screen="hospital"]{background:#0B1220}
+body[data-screen="hospital"] main{background:radial-gradient(1200px 600px at 50% 0%,#17233a,#0B1220 70%)}
+body[data-screen="hospital"] .hud{background:rgba(11,18,32,.72);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.08);color:#E6EDF3}
+body[data-screen="hospital"] .hud-chip{background:rgba(255,255,255,.1);color:#E6EDF3}
+body[data-screen="hospital"] .hud-prog{color:#CBD5E1}
+body[data-screen="hospital"] .progress{background:rgba(255,255,255,.12)}
+body[data-screen="hospital"] .hud .btn.ghost,body[data-screen="hospital"] .hud .btn.soft{background:rgba(255,255,255,.1);color:#E6EDF3;box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+body[data-screen="hospital"] .map-help{color:#8B98A8}
+.vr-stage{display:grid;grid-template-columns:84px 1fr;gap:12px;max-width:1400px;margin:12px auto 0;padding:0 12px}
+.vr-side{display:flex;flex-direction:column;gap:6px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:10px 6px;height:fit-content;position:sticky;top:120px}
+.vr-side button{border:0;background:transparent;color:#9AA7B8;border-radius:12px;padding:10px 4px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:.72rem;font-weight:700;transition:.15s}
+.vr-side button span{font-size:1.25rem}
+.vr-side button:hover{background:rgba(255,255,255,.08);color:#fff}
+.vr-side button.active{background:linear-gradient(135deg,#6D5BD0,#8B5CF6);color:#fff;box-shadow:0 6px 16px rgba(139,92,246,.35)}
+.vr-stage .map-wrap{margin:0;padding:0;position:relative;border-radius:20px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+#map3d{border-radius:20px;border:1px solid rgba(255,255,255,.1);background:#0B1220}
+.vr-stage .map-wrap::after{content:"";position:absolute;inset:0;pointer-events:none;border-radius:20px;background:radial-gradient(120% 90% at 50% 40%,transparent 55%,rgba(5,10,20,.55) 100%)}
+.vr-module{position:absolute;left:50%;bottom:64px;transform:translateX(-50%);background:linear-gradient(135deg,rgba(109,91,208,.92),rgba(139,92,246,.92));color:#fff;font-weight:800;font-size:.95rem;padding:9px 18px;border-radius:999px;box-shadow:0 10px 30px rgba(109,91,208,.45);white-space:nowrap;max-width:88%;overflow:hidden;text-overflow:ellipsis;z-index:4;pointer-events:none;letter-spacing:-.01em}
+.vr-module:empty{display:none}
+.vr-tools{position:absolute;left:14px;bottom:14px;display:flex;flex-direction:column;gap:8px;z-index:4}
+.vr-tools button{width:40px;height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(11,18,32,.6);backdrop-filter:blur(6px);color:#fff;font-size:1.1rem;transition:.15s}
+.vr-tools button:hover{background:rgba(139,92,246,.6)}
+.vr-tools button.rec{background:#DC2626;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,.5)}50%{box-shadow:0 0 0 8px rgba(220,38,38,0)}}
+.fp-hint{bottom:112px;background:rgba(109,91,208,.92);box-shadow:0 8px 24px rgba(109,91,208,.4)}
+.fp-cross{top:calc(50% - 10px)}
+@media (max-width:760px){.vr-stage{grid-template-columns:1fr;gap:6px}.vr-side{display:none}.vr-module{bottom:54px;font-size:.82rem}.vr-tools{left:8px;bottom:8px}.fp-hint{bottom:96px}}
+/* 병원 화면에서 차트 패널은 3D 위에 뜨는 유리 패널 */
+body[data-screen="hospital"] .panel{background:rgba(11,18,32,.78);backdrop-filter:blur(16px);border-left:1px solid rgba(255,255,255,.1);box-shadow:-20px 0 60px rgba(0,0,0,.45);width:min(560px,100%)}
+body[data-screen="hospital"] .panel-head{background:transparent;border-bottom:1px solid rgba(255,255,255,.1)}
+body[data-screen="hospital"] .panel-head h2,body[data-screen="hospital"] .panel-head .muted{color:#E6EDF3}
+body[data-screen="hospital"] .panel-head .icon-btn{background:rgba(255,255,255,.14);color:#fff}
+body[data-screen="hospital"] .room-tag{background:linear-gradient(135deg,#6D5BD0,#8B5CF6);color:#fff}
+body[data-screen="hospital"] .soap-tabs{background:transparent}
+body[data-screen="hospital"] .soap-tab{background:rgba(255,255,255,.92)}
+body[data-screen="hospital"] .patient-box{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12)}
+body[data-screen="hospital"] .guide{background:rgba(255,255,255,.9)}
+body[data-screen="hospital"] .soap-body>.impression,body[data-screen="hospital"] .plan-box{box-shadow:0 6px 18px rgba(0,0,0,.25)}
+body[data-screen="hospital"] .qcard{border-color:#8B5CF6;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+body[data-screen="hospital"] .qcard .q-meta .tag{background:linear-gradient(135deg,#6D5BD0,#8B5CF6)}
+body[data-screen="hospital"] .choice{border-radius:10px}
+body[data-screen="hospital"] .chat{box-shadow:0 6px 18px rgba(0,0,0,.25)}
+body[data-screen="hospital"] .tests .test-card,body[data-screen="hospital"] .icf,body[data-screen="hospital"] .stage-chip{box-shadow:0 4px 14px rgba(0,0,0,.2)}
+body[data-screen="hospital"] .chips .chip{background:rgba(255,255,255,.95)}
+body[data-screen="hospital"] .btn.primary.block{background:linear-gradient(135deg,#6D5BD0,#8B5CF6);box-shadow:0 8px 20px rgba(139,92,246,.4)}
+body.panel-open[data-screen="hospital"]::after{background:rgba(5,10,20,.15)}
+.mic-btn.rec{background:#DC2626!important;color:#fff;animation:pulse 1s infinite}
