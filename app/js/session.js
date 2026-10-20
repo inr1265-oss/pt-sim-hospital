@@ -37,7 +37,7 @@ window.Session = (() => {
   const progress = () => ({ answered: S.answers.length, correct: S.answers.filter(a => a.correct).length, target: S.cfg ? S.cfg.target : 0 });
   function roomInfo(floor, i) {
     const r = S.rooms[floor] && S.rooms[floor][i]; if (!r) return { status: 'empty' };
-    const p = r.case.patient; return { label: `${p.name} (${p.ageText || p.age + '세'}, ${p.sex})`, status: r.done ? 'done' : 'ready', pediatric: !!p.pediatric, sex: p.sex, age: p.age };
+    const p = r.case.patient; return { label: `${p.name} (${p.ageText || p.age + '세'}, ${p.sex})`, status: r.done ? 'done' : 'ready', pediatric: !!p.pediatric, sex: p.sex, age: p.age, region: p.region, posture: p.posture || 'supine', floor, job: p.job };
   }
   const floorDone = floor => (S.rooms[floor] || []).every(r => r.done);
   const allDone = () => S.cfg.floors.every(floorDone);

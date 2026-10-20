@@ -10,13 +10,13 @@ window.App = (() => {
   const MODE = { full: '종합 순회', floor: '층별', practice: '연습' };
   const TINT = { 1: '#E3F3EA', 2: '#E1EEFF', 3: '#FDE8F1', 4: '#FFF3DD' };
   let user = null, curFloor = 1, engine = null, view3d = false;
-  const eng = () => engine || Hospital;
+  const eng = () => Hospital3D;
 
   async function boot() {
     await Store.init();
     [1, 2, 3, 4].forEach(f => (PT_CASES[f] || []).forEach(c => c.floor = f));
     if (Admin.loadHandle) Admin.loadHandle();
-    view3d = !!Store.getPref('view3d', false);
+    view3d = true;
     document.title = Store.settings.appName; $('#brand-name').textContent = Store.settings.appName;
     $$('[data-nav]').forEach(b => b.addEventListener('click', () => nav(b.dataset.nav)));
     $$('.dpad button').forEach(b => b.addEventListener('pointerdown', e => { e.preventDefault(); const d = b.dataset.dir; if (d === 'ok') window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' })); else eng().move(d); }));
@@ -87,22 +87,17 @@ window.App = (() => {
     const ai = Store.geminiAvailable();
     U.modal({ title: mode === 'practice' ? '🎮 연습 모드' : '📝 평가 시작', body: h('div', {},
       h('p', {}, mode === 'full' ? `1층 문진실부터 시작합니다. 층마다 ${rpf}개 병실의 환자를 치료한 뒤 층 이동으로 다음 층에 가세요.` : mode === 'floor' ? `${floor}F ${FLOOR[floor].name}에서 ${target}문항이 출제됩니다. 환자 ${rpf}명을 모두 치료하면 새 환자가 배정됩니다.` : `${curFloor}F에서 시작합니다. 층 이동 버튼으로 어느 층이든 자유롭게 오갈 수 있고 점수는 저장되지 않습니다.`),
-      h('ul', { class: 'tips' }, h('li', {}, '이동: 병실을 클릭(터치)하면 자동 이동·입장. 방향키/WASD도 가능'), h('li', {}, `각 환자당 최대 ${perStep * 2}문항(평가 ${perStep} + 중재 ${perStep}), 즉시 채점·해설`), h('li', {}, '🧊 상단 3D 보기 버튼으로 입체 병원으로 전환할 수 있어요'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 70}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
+      h('ul', { class: 'tips' }, h('li', {}, `각 환자당 최대 ${perStep * 2}문항(평가 ${perStep} + 중재 ${perStep}), 즉시 채점·해설`), h('li', {}, '🧊 1인칭 3D 병원: ↑↓(W/S) 걷기, ←→ 돌기, 화면 드래그로 둘러보기. 병실을 클릭하면 침대까지 자동 이동'), h('li', {}, '👆 침대의 환자를 클릭하면 진료 시작 · 병실은 01호부터 순서대로 진행'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 70}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
   }
-  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Session.roomInfo(curFloor, i), onEnterRoom: enterRoom, onElevator: elevator, onFail: () => { view3d = false; Store.setPref('view3d', false); engine = null; mountHospital(); eng().setFloor(curFloor); } }; }
-  function mountHospital() {
-    const want = (view3d && window.Hospital3D) ? Hospital3D : Hospital;
-    if (engine === want) return;
-    if (engine) engine.destroy();
-    engine = want; const is3d = engine === window.Hospital3D;
-    $('#map').classList.toggle('hidden', is3d); $('#map3d').classList.toggle('hidden', !is3d);
-    engine.mount(is3d ? $('#map3d') : $('#map'), hospitalOpts());
-  }
-  function toggleView() { view3d = !view3d; Store.setPref('view3d', view3d); mountHospital(); eng().setFloor(curFloor); updateHUD(); toast(view3d ? '🧊 3D 병원으로 전환했어요. 병실을 클릭하거나 방향키로 이동하세요.' : '🗺️ 2D 지도로 전환했어요.', 'info'); }
+  // 순서대로 진행: 아직 치료하지 않은 가장 앞 병실만 진료 가능
+  const nextRoom = () => (Session.state.rooms[curFloor] || []).findIndex(r => !r.done);
+  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Object.assign(Session.roomInfo(curFloor, i), { next: i === nextRoom() }), onEnterRoom: enterRoom, onElevator: elevator, onFail: () => toast('3D 병원을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.', 'err') }; }
+  function mountHospital() { if (engine) return; engine = Hospital3D; engine.mount($('#map3d'), hospitalOpts()); }
   function enterRoom(i) {
     const info = Session.roomInfo(curFloor, i);
     if (info.status === 'empty') return toast('빈 병실입니다.', 'info');
     if (info.status === 'done') return toast('이미 치료를 마친 환자입니다. 다른 병실로 이동하세요.', 'info');
+    const nx = nextRoom(); if (nx >= 0 && i !== nx) return toast(`순서대로 진행해 주세요. 먼저 ${curFloor}0${nx + 1}호 환자를 진료하세요.`, 'info');
     Session.open(curFloor, i, afterRoom);
   }
   async function afterRoom() {
@@ -137,7 +132,6 @@ window.App = (() => {
     $('#hud-bar').style.width = pct + '%';
     $('#hud-score').textContent = p.answered ? `정답률 ${Math.round(p.correct / p.answered * 100)}%` : '정답률 -';
     $('#hud-rooms').textContent = `이 층 ${(Session.state.rooms[curFloor] || []).filter(r => r.done).length}/${(Session.state.rooms[curFloor] || []).length} 완료`;
-    const bv = $('#btn-view'); if (bv) { bv.textContent = view3d ? '🗺️ 2D 보기' : '🧊 3D 보기'; bv.onclick = toggleView; }
     $('#btn-elev').onclick = elevator;
     $('#btn-quit').textContent = Session.cfg.mode === 'practice' ? '연습 종료' : '종료·채점';
     $('#btn-quit').onclick = async () => { if (Session.cfg.mode === 'practice') return finish(); if (await U.confirm('평가를 중단하고 지금까지의 답변으로 채점할까요? (미답변 문항은 포함되지 않으며 결과가 기록에 남습니다)')) finish(); };

@@ -237,3 +237,9 @@ body[data-screen="auth"] .bottom-nav,body[data-screen="admin"] .bottom-nav{displ
 .exam-box .ai-head{display:flex;align-items:center;gap:6px;font-weight:800;color:#5B21B6;font-size:.88rem;margin-bottom:4px}
 .exam-log{display:flex;flex-direction:column;gap:4px;font-size:.88rem}
 .exam-line{padding:6px 10px;border-radius:10px;background:#fff;border:1px solid #EDE9FE}.exam-line.me{background:var(--g-mist);border-color:var(--g-line)}.exam-line b{color:var(--g-deep)}
+/* 1인칭 3D 오버레이 */
+.map-wrap{position:relative}
+.fp-cross{position:absolute;left:50%;top:calc(50% - 10px);width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 0 0 2px rgba(20,32,26,.35);pointer-events:none;z-index:3}
+.fp-hint{position:absolute;left:50%;bottom:26px;transform:translateX(-50%) translateY(6px);background:rgba(20,32,26,.85);color:#fff;font-weight:700;font-size:.9rem;padding:8px 14px;border-radius:999px;opacity:0;transition:.2s;pointer-events:none;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis;z-index:3}
+.fp-hint.show{opacity:1;transform:translateX(-50%)}
+#map.hidden ~ .fp-cross, #map3d.hidden ~ .fp-cross, #map3d.hidden ~ .fp-hint{display:none}

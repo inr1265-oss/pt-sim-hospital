@@ -31,10 +31,10 @@
     <div class="hud">
       <div class="hud-left"><span id="hud-floor" class="hud-chip floor"></span><span id="hud-rooms" class="hud-chip"></span></div>
       <div class="hud-mid"><div class="hud-prog"><span id="hud-prog"></span><span id="hud-score"></span></div><div class="progress"><i id="hud-bar"></i></div></div>
-      <div class="hud-right"><button id="btn-view" class="btn small ghost">🧊 3D 보기</button><button id="btn-elev" class="btn small soft">🛗 층 이동</button><button id="btn-quit" class="btn small ghost">종료·채점</button></div>
+      <div class="hud-right"><button id="btn-elev" class="btn small soft">🛗 층 이동</button><button id="btn-quit" class="btn small ghost">종료·채점</button></div>
     </div>
-    <div class="map-wrap"><canvas id="map" width="704" height="320" aria-label="병원 지도"></canvas><canvas id="map3d" class="hidden" aria-label="3D 병원"></canvas></div>
-    <p class="map-help muted small">병실을 클릭(터치)하면 자동으로 이동해 입장합니다. 다른 층은 상단 <b>층 이동</b> 버튼으로 바로 갈 수 있어요.</p>
+    <div class="map-wrap"><canvas id="map3d" aria-label="3D 병원"></canvas></div>
+    <p class="map-help muted small">↑↓(W/S) 걷기 · ←→ 돌기 · 화면 드래그로 둘러보기 · 병실을 클릭하면 침대까지 자동 이동 · <b>침대의 환자를 클릭</b>하면 진료 시작 · 다른 층은 <b>층 이동</b></p>
     <div class="dpad" aria-label="이동 패드">
       <button data-dir="up" aria-label="위">▲</button>
       <button data-dir="left" aria-label="왼쪽">◀</button>
@@ -67,7 +67,6 @@
 <script src="js/storage.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/patient.js"></script>
-<script src="js/hospital.js"></script>
 <script src="js/hospital3d.js"></script>
 <script src="js/gemini.js"></script>
 <script src="js/session.js"></script>
