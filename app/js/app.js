@@ -8,6 +8,7 @@ window.App = (() => {
     4: { icon: '⚡', name: '물리적인자치료실', short: '물리적인자치료', desc: '전기·광선·열·수치료의 선택, 매개변수, 금기' }
   };
   const MODE = { full: '종합 순회', floor: '층별', practice: '연습' };
+  const TINT = { 1: '#E3F3EA', 2: '#E1EEFF', 3: '#FDE8F1', 4: '#FFF3DD' };
   let user = null, curFloor = 1, hospitalMounted = false;
 
   async function boot() {
@@ -51,7 +52,7 @@ window.App = (() => {
     const my = (await Store.getResults(user.studentId)).filter(r => r.mode !== 'practice').sort((a, b) => b.date.localeCompare(a.date));
     const best = my.length ? Math.max(...my.map(r => r.score)) : null;
     const subject = getSubject();
-    const modeCard = (title, desc, icon, onClick, badge) => h('button', { class: 'card mode', onClick }, h('div', { class: 'mode-icon' }, icon), h('div', { class: 'mode-body' }, h('b', { text: title }), h('div', { class: 'muted small', text: desc })), badge ? h('span', { class: 'tag' }, badge) : null);
+    const modeCard = (title, desc, icon, onClick, badge, tint) => h('button', { class: 'card mode', onClick }, h('div', { class: 'mode-icon', style: tint ? { background: tint } : null }, icon), h('div', { class: 'mode-body' }, h('b', { text: title }), h('div', { class: 'muted small', text: desc })), badge ? h('span', { class: 'tag' }, badge) : null);
     const p = Session.active ? Session.progress() : null;
     const ai = Store.geminiAvailable();
     const subjectBar = h('div', { class: 'subject-bar' }, h('span', { class: 'lbl' }, '내 과목'),
@@ -67,7 +68,7 @@ window.App = (() => {
       p ? h('div', { class: 'card resume' }, h('div', {}, h('b', { text: '진행 중인 평가가 있습니다' }), h('div', { class: 'muted small' }, `${MODE[Session.cfg.mode]} ${Session.cfg.floors.join('·')}F · ${p.answered}${isFinite(p.target) ? ' / ' + p.target : ''} 문항 답변`)), h('div', { class: 'row' }, h('button', { class: 'btn primary', onClick: () => show('hospital') }, '이어하기'), h('button', { class: 'btn ghost', onClick: async () => { if (await U.confirm('진행 중인 평가를 취소할까요? 답변 기록은 저장되지 않습니다.')) { Session.end(); renderHome(); } } }, '취소'))) : null,
       subjectBar, quick,
       h('h3', { text: '🏥 종합 모드' }), modeCard(`종합 순회 평가 (${target}문항)`, '1층 문진실부터 4층까지 모든 층을 돌며 평가합니다. 층마다 5명의 환자가 랜덤 배정됩니다.', '🏥', () => startMode('full'), '정식 평가'),
-      h('details', { class: 'more', open: !subject }, h('summary', {}, subject ? '다른 층(과목) 보기' : '🚪 층별 집중 모드'), h('div', { class: 'grid2' }, [1, 2, 3, 4].filter(f => f !== subject).map(f => modeCard(`${f}F ${FLOOR[f].name}`, FLOOR[f].desc, FLOOR[f].icon, () => startMode('floor', f))))),
+      h('details', { class: 'more', open: !subject }, h('summary', {}, subject ? '다른 층(과목) 보기' : '🚪 층별 집중 모드'), h('div', { class: 'grid2' }, [1, 2, 3, 4].filter(f => f !== subject).map(f => modeCard(`${f}F ${FLOOR[f].name}`, FLOOR[f].desc, FLOOR[f].icon, () => startMode('floor', f), null, TINT[f])))),
       h('h3', { text: '🎮 연습 모드' }), modeCard('자유 탐색 (점수 미저장)', '모든 층을 자유롭게 오가며 환자를 만나 보세요. 정답·해설은 보여주지만 성적은 저장되지 않습니다.', '🎮', () => startMode('practice', subject || 1)),
       my.length ? h('div', { class: 'mt' }, h('h3', { text: '📈 최근 결과' }), my.slice(0, 3).map(r => h('div', { class: 'list-row' }, h('div', {}, h('b', { text: `${r.score}점 · ${r.pass ? '합격' : '불합격'}` }), h('div', { class: 'tiny muted' }, `${U.fmtDate(r.date)} · ${MODE[r.mode]} ${r.floors}F · ${r.correct}/${r.total}`)), h('span', { class: 'tag ' + (r.pass ? 'ok' : 'bad') }, r.pass ? 'PASS' : 'FAIL'))), h('button', { class: 'link-btn', onClick: () => show('records') }, '전체 기록 보기 →')) : null
     );

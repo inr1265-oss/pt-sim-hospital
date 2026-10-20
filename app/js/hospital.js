@@ -8,12 +8,12 @@ window.Hospital = (() => {
   const DOORS = ROOM_COLS.map(([a]) => a + 1); // 4,8,12,16,20
   const ELEV = { c0: 0, c1: 1, r0: 1, door: { c: 1, r: 5 } };
   const FLOOR_META = {
-    1: { name: '임상의사결정 문진실', color: '#E3F3EA', accent: '#0F7A4D' },
-    2: { name: '운동치료실', color: '#E1EEFF', accent: '#2563EB' },
-    3: { name: '소아물리치료실', color: '#FDE8F1', accent: '#DB2777' },
-    4: { name: '물리적인자치료실', color: '#FFF3DD', accent: '#D97706' }
+    1: { name: '임상의사결정 문진실', color: '#E3F3EA', accent: '#0F7A4D', deep: '#0B5E3B', prop: '🩺' },
+    2: { name: '운동치료실', color: '#E1EEFF', accent: '#2563EB', deep: '#1E40AF', prop: '🏋️' },
+    3: { name: '소아물리치료실', color: '#FDE8F1', accent: '#DB2777', deep: '#9D174D', prop: '🧸' },
+    4: { name: '물리적인자치료실', color: '#FFF3DD', accent: '#D97706', deep: '#92400E', prop: '⚡' }
   };
-  let canvas = null, ctx = null, opts = {}, floor = 1, raf = null, running = false, lastTs = 0, hoverRoom = -1;
+  let canvas = null, ctx = null, opts = {}, floor = 1, raf = null, running = false, lastTs = 0, hoverRoom = -1, watchdog = null;
   const player = { c: 2, r: 6, x: 2, y: 6, path: [], dir: 'down', step: 0 };
 
   const walkable = (c, r) => c >= 0 && c < COLS && ((r === 6 || r === 7) || (r === 5 && (DOORS.includes(c) || c === ELEV.door.c)));
@@ -36,6 +36,7 @@ window.Hospital = (() => {
     cv.addEventListener('pointerdown', onPointer); cv.addEventListener('pointermove', onHover); cv.addEventListener('pointerleave', () => { hoverRoom = -1; });
     window.addEventListener('keydown', onKey);
     running = true; lastTs = performance.now(); raf = requestAnimationFrame(loop);
+    // 백그라운드/숨김 상태에서 requestAnimationFrame이 멈추면 타이머로 대신 진행
     watchdog = setInterval(() => { if (running && performance.now() - lastTs > 60) tick(performance.now()); }, 40);
   }
   function destroy() { running = false; cancelAnimationFrame(raf); clearInterval(watchdog); window.removeEventListener('keydown', onKey); window.removeEventListener('resize', resize); }
@@ -72,8 +73,6 @@ window.Hospital = (() => {
   const SPEED = 7; // 타일/초
   function tick(ts) { const dt = Math.min(0.1, Math.max(0, (ts - lastTs) / 1000)); lastTs = ts; update(dt); draw(ts); }
   function loop(ts) { if (!running) return; tick(ts); raf = requestAnimationFrame(loop); }
-  // 백그라운드/숨김 상태에서 requestAnimationFrame이 멈추면 타이머로 대신 진행
-  let watchdog = null;
   function update(dt) {
     if (!player.path.length) return;
     const n = player.path[0]; const dx = n.c - player.x, dy = n.r - player.y; const dist = Math.hypot(dx, dy); const stepLen = SPEED * dt; player.step += stepLen * 4;
@@ -88,58 +87,120 @@ window.Hospital = (() => {
     if (ri >= 0) { if (opts.onEnterRoom) opts.onEnterRoom(ri); }
     else if (t.c <= 1) { if (opts.onElevator) opts.onElevator(); }
   }
-  function rr(x, y, w, h, r, fill, stroke) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1.5; ctx.stroke(); } }
+
+  // ---------- 그리기 ----------
+  function rr(x, y, w, h, r, fill, stroke, lw) { ctx.beginPath(); ctx.roundRect(x, y, w, h, r); if (fill) { ctx.fillStyle = fill; ctx.fill(); } if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = lw || 1.5; ctx.stroke(); } }
+  function lin(x0, y0, x1, y1, stops) { const g = ctx.createLinearGradient(x0, y0, x1, y1); stops.forEach(([o, c]) => g.addColorStop(o, c)); return g; }
+  function text(t, x, y, font, color, align) { ctx.font = font; ctx.fillStyle = color; ctx.textAlign = align || 'left'; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y); }
+  function pill(t, cx, cy, bg, fg, font) { ctx.font = font || 'bold 10px sans-serif'; const w = ctx.measureText(t).width + 14; rr(cx - w / 2, cy - 9, w, 18, 9, bg); text(t, cx, cy + 0.5, font || 'bold 10px sans-serif', fg, 'center'); }
+  const SKIN = '#F6D3B5', SKIN_D = '#E2B08E';
+
+  function drawBackground(meta) {
+    ctx.fillStyle = '#F4F6F9'; ctx.fillRect(0, 0, W, H);
+    // 상단 벽 띠 + 층 안내판
+    ctx.fillStyle = lin(0, 0, 0, TILE, [[0, meta.color], [1, '#FFFFFF']]); ctx.fillRect(0, 0, W, TILE);
+    ctx.fillStyle = 'rgba(0,0,0,.06)'; ctx.fillRect(0, TILE - 2, W, 2);
+    rr(10, 5, 40, 22, 6, meta.deep); text(`${floor}F`, 30, 16.5, 'bold 13px sans-serif', '#fff', 'center');
+    text(meta.name, 58, 16.5, 'bold 14px sans-serif', '#1F2937');
+    text(U.isTouch ? '병실을 터치하면 이동 · 문 앞에서 다시 터치하면 입장' : '방향키/클릭으로 이동 · 문 앞에서 Enter로 입장', W - 12, 16.5, '11px sans-serif', '#6B7280', 'right');
+    // 병실 뒤 벽
+    ctx.fillStyle = '#EEF1F5'; ctx.fillRect(0, TILE, W, 5 * TILE);
+    // 복도 바닥(타일)
+    for (let c = 0; c < COLS; c++) for (let r = 6; r < 8; r++) { ctx.fillStyle = (c + r) % 2 ? '#E6EAF0' : '#EDF0F4'; ctx.fillRect(c * TILE, r * TILE, TILE, TILE); }
+    ctx.fillStyle = 'rgba(0,0,0,.10)'; ctx.fillRect(0, 6 * TILE, W, 3);
+    ctx.strokeStyle = 'rgba(31,41,55,.12)'; ctx.setLineDash([8, 8]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 7 * TILE); ctx.lineTo(W, 7 * TILE); ctx.stroke(); ctx.setLineDash([]);
+    // 하단 벽 + 창문
+    ctx.fillStyle = lin(0, 8 * TILE, 0, H, [[0, '#E3E8EF'], [1, '#D6DDE6']]); ctx.fillRect(0, 8 * TILE, W, 2 * TILE);
+    ctx.fillStyle = '#C9D2DD'; ctx.fillRect(0, 8 * TILE, W, 3);
+    for (let c = 3; c < COLS - 1; c += 5) {
+      const x = c * TILE + 6, y = 8 * TILE + 8, w = TILE * 2 - 12, h = TILE * 1.3;
+      rr(x, y, w, h, 6, lin(x, y, x + w, y + h, [[0, '#DFF1FF'], [1, '#B9DBFA']]), '#9DBBD8');
+      ctx.fillStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(x + 6, y + h - 4); ctx.lineTo(x + 22, y + 4); ctx.lineTo(x + 30, y + 4); ctx.lineTo(x + 14, y + h - 4); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#9DBBD8'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y + h); ctx.stroke();
+    }
+    ctx.font = '19px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ['🪴', '🛋️', '🪴', '🧯', '🪴'].forEach((e, i) => ctx.fillText(e, (1 + i * 5) * TILE + TILE / 2, 9.3 * TILE));
+  }
+  function drawElevator(ts) {
+    const x = 4, y = ELEV.r0 * TILE + 4, w = 2 * TILE - 8, h = 4 * TILE - 8;
+    rr(x, y, w, h, 8, lin(x, y, x + w, y, [[0, '#B6C1CF'], [0.5, '#E2E8F0'], [1, '#B6C1CF']]), '#8E9AAB');
+    rr(x + 6, y + 6, w - 12, 16, 4, '#1F2937'); text(`${floor}F ▲▼`, x + w / 2, y + 14.5, 'bold 10px monospace', '#F87171', 'center');
+    const dy = y + 28, dh = h - 48; rr(x + 7, dy, (w - 16) / 2, dh, 3, lin(x, dy, x + w, dy, [[0, '#CBD5E1'], [1, '#94A3B8']]), '#64748B'); rr(x + w / 2 + 1, dy, (w - 16) / 2, dh, 3, lin(x, dy, x + w, dy, [[0, '#94A3B8'], [1, '#CBD5E1']]), '#64748B');
+    text('엘리베이터', x + w / 2, y + h - 9, 'bold 9px sans-serif', '#334155', 'center');
+    rr(6, 5 * TILE + 2, 2 * TILE - 12, TILE - 4, 4, '#64748B');
+    ctx.fillStyle = '#F59E0B'; ctx.beginPath(); ctx.arc(x + w + 2, y + h / 2, 3, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawRoom(i, meta, ts) {
+    const [a] = ROOM_COLS[i]; const x = a * TILE, y = TILE, w = 3 * TILE, hgt = 4 * TILE;
+    const room = (opts.getRoom && opts.getRoom(i)) || {}; const done = room.status === 'done'; const empty = room.status === 'empty'; const hovered = hoverRoom === i;
+    // 그림자 + 바닥
+    rr(x + 4, y + 6, w - 4, hgt - 2, 10, 'rgba(15,23,42,.08)');
+    rr(x + 2, y + 2, w - 4, hgt - 2, 10, done ? '#F3FBF5' : '#FFFFFF', hovered ? meta.accent : '#D6DCE4', hovered ? 2.5 : 1.5);
+    // 창문
+    rr(x + w - 34, y + 7, 26, 12, 3, lin(x, y, x, y + 20, [[0, '#DFF1FF'], [1, '#BFE0FB']]), '#A9C6E0');
+    // 방 번호
+    rr(x + 6, y + 6, 36, 14, 4, meta.color); text(`${floor}0${i + 1}호`, x + 24, y + 13.5, 'bold 10px sans-serif', meta.deep, 'center');
+    // 침대
+    const bx = x + 12, by = y + 26, bw = w - 24, bh = 48;
+    rr(bx, by, bw, bh, 8, '#D9E1EA', '#C5CFDC'); rr(bx + 4, by + 4, bw - 8, bh - 8, 6, '#F7F9FC');
+    rr(bx + 7, by + 9, 14, bh - 18, 5, '#FFFFFF', '#E2E8F0');
+    if (!empty) {
+      const ped = room.pediatric; const s = ped ? 0.8 : 1; const hx = bx + 14, hy = by + bh / 2; const hr = 7 * s;
+      // 이불
+      const bl = done ? '#BBF7D0' : (ped ? '#FFE3A8' : meta.color);
+      rr(bx + 24, by + 9, bw - 32, bh - 18, 7, bl, done ? '#86EFAC' : 'rgba(0,0,0,.08)');
+      ctx.strokeStyle = 'rgba(0,0,0,.08)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx + 34, by + 12); ctx.lineTo(bx + 34, by + bh - 12); ctx.moveTo(bx + 44, by + 12); ctx.lineTo(bx + 44, by + bh - 12); ctx.stroke();
+      // 머리(머리카락 + 얼굴)
+      ctx.fillStyle = done ? '#6B4F3A' : '#3B2A20'; ctx.beginPath(); ctx.ellipse(hx - 2, hy, hr + 2, hr + 1.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2A2A2A'; ctx.fillRect(hx - 1, hy - 3.5, 1.6, 2.2); ctx.fillRect(hx - 1, hy + 1.3, 1.6, 2.2);
+      if (ped) { ctx.font = '11px serif'; ctx.textAlign = 'center'; ctx.fillText('🧸', bx + bw - 12, by + 12); }
+      // 호출등
+      if (!done) { const on = Math.floor(ts / 600) % 2 === 0; ctx.fillStyle = on ? '#EF4444' : '#FCA5A5'; ctx.beginPath(); ctx.arc(bx + bw - 6, by - 2, 3.5, 0, Math.PI * 2); ctx.fill(); if (on) { ctx.fillStyle = 'rgba(239,68,68,.25)'; ctx.beginPath(); ctx.arc(bx + bw - 6, by - 2, 7, 0, Math.PI * 2); ctx.fill(); } }
+      else { ctx.fillStyle = '#16A34A'; ctx.beginPath(); ctx.arc(x + w - 14, y + 30, 8, 0, Math.PI * 2); ctx.fill(); text('✓', x + w - 14, y + 30.5, 'bold 11px sans-serif', '#fff', 'center'); }
+    }
+    // 층별 소품
+    ctx.font = '12px serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle'; ctx.fillText(meta.prop, x + w - 7, y + hgt - 13);
+    // 이름 · 상태
+    text(room.label || '빈 병실', x + w / 2, y + hgt - 31, '10.5px sans-serif', done ? '#15803D' : '#374151', 'center');
+    pill(done ? '✓ 치료 완료' : empty ? '빈 병실' : '대기 중', x + w / 2, y + hgt - 14, done ? '#DCFCE7' : empty ? '#F1F5F9' : '#FEF3C7', done ? '#15803D' : empty ? '#94A3B8' : '#92400E');
+    // 문
+    const dx = DOORS[i] * TILE + 5, dy = 5 * TILE + 1, dw = TILE - 10, dh = TILE - 2;
+    rr(dx - 2, dy - 1, dw + 4, dh + 2, 5, '#8A6A4E');
+    rr(dx, dy, dw, dh, 4, lin(dx, dy, dx + dw, dy, [[0, '#C8955A'], [1, '#A67340']]), hovered ? meta.accent : '#7A5230', hovered ? 2 : 1);
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(dx + 4, dy + 5, dw - 8, 9);
+    ctx.fillStyle = '#F5D27A'; ctx.beginPath(); ctx.arc(dx + dw - 5, dy + dh / 2 + 2, 2, 0, Math.PI * 2); ctx.fill();
+  }
+  function drawPlayer() {
+    const px = (player.x + 0.5) * TILE, py = (player.y + 0.5) * TILE; const moving = player.path.length > 0; const bob = moving ? Math.sin(player.step) * 1.5 : 0; const sw = moving ? Math.sin(player.step) * 3 : 0;
+    ctx.fillStyle = 'rgba(15,23,42,.18)'; ctx.beginPath(); ctx.ellipse(px, py + 13, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+    // 다리
+    ctx.fillStyle = '#334155'; rr(px - 6, py + 8 + sw / 2, 5, 6, 2, '#334155'); rr(px + 1, py + 8 - sw / 2, 5, 6, 2, '#334155');
+    // 가운 + 수술복
+    rr(px - 10, py - 4 + bob, 20, 16, 6, '#FFFFFF', '#CBD5E1');
+    ctx.fillStyle = '#0F7A4D'; ctx.beginPath(); ctx.moveTo(px - 4, py - 4 + bob); ctx.lineTo(px + 4, py - 4 + bob); ctx.lineTo(px, py + 4 + bob); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#D1D5DB'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px - 4, py - 4 + bob); ctx.lineTo(px - 2, py + 10 + bob); ctx.moveTo(px + 4, py - 4 + bob); ctx.lineTo(px + 2, py + 10 + bob); ctx.stroke();
+    // 청진기
+    ctx.strokeStyle = '#374151'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(px, py - 1 + bob, 6, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); ctx.fillStyle = '#374151'; ctx.beginPath(); ctx.arc(px + 5.5, py + 4 + bob, 2, 0, Math.PI * 2); ctx.fill();
+    rr(px + 3, py + 1 + bob, 5, 3, 1, '#0F7A4D');
+    // 머리
+    ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(px, py - 11 + bob, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#3B2A20';
+    if (player.dir === 'up') { ctx.beginPath(); ctx.arc(px, py - 11 + bob, 8, 0, Math.PI * 2); ctx.fill(); }
+    else { ctx.beginPath(); ctx.arc(px, py - 12.5 + bob, 8, Math.PI, 0); ctx.fill(); ctx.fillRect(px - 8, py - 12.5 + bob, 16, 2.5); const ex = player.dir === 'left' ? -3 : player.dir === 'right' ? 3 : 0; ctx.fillStyle = '#2A2A2A'; ctx.fillRect(px - 3.5 + ex, py - 10 + bob, 2, 2.4); ctx.fillRect(px + 1.5 + ex, py - 10 + bob, 2, 2.4); ctx.fillStyle = 'rgba(240,120,120,.35)'; ctx.fillRect(px - 6 + ex, py - 7 + bob, 3, 1.5); ctx.fillRect(px + 3 + ex, py - 7 + bob, 3, 1.5); }
+  }
   function draw(ts) {
     const meta = FLOOR_META[floor] || FLOOR_META[1];
-    ctx.clearRect(0, 0, W, H); ctx.fillStyle = '#f6f7f9'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#e9ecf1'; ctx.fillRect(0, 6 * TILE, W, 2 * TILE);
-    ctx.strokeStyle = '#d7dbe2'; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(0, 7 * TILE); ctx.lineTo(W, 7 * TILE); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#dfe4ea'; ctx.fillRect(0, 8 * TILE, W, 2 * TILE);
-    for (let c = 3; c < COLS - 1; c += 5) rr(c * TILE + 6, 8 * TILE + 8, TILE * 2 - 12, TILE * 1.3, 6, '#cfe8ff', '#b9d4ef');
-    ctx.font = '20px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ['🪴', '🛋️', '🪴', '🧯', '🪴'].forEach((e, i) => ctx.fillText(e, (1 + i * 5) * TILE + TILE / 2, 9.3 * TILE));
-    ctx.fillStyle = meta.color; ctx.fillRect(0, 0, W, TILE);
-    ctx.fillStyle = '#1f2937'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`${floor}F  ${meta.name}`, 12, TILE / 2);
-    ctx.textAlign = 'right'; ctx.font = '12px sans-serif'; ctx.fillStyle = '#6b7280';
-    ctx.fillText(U.isTouch ? '병실을 터치하면 이동 · 문 앞에서 다시 터치하면 입장' : '방향키/클릭으로 이동 · 문 앞에서 Enter로 입장', W - 12, TILE / 2);
-    // 엘리베이터
-    rr(4, ELEV.r0 * TILE + 4, 2 * TILE - 8, 4 * TILE - 8, 8, '#cbd5e1', '#94a3b8');
-    ctx.font = '26px serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#475569'; ctx.fillText('🛗', TILE, 3.1 * TILE);
-    ctx.font = 'bold 11px sans-serif'; ctx.fillStyle = '#1e293b'; ctx.fillText('엘리베이터', TILE, 1.6 * TILE);
-    rr(6, 5 * TILE + 2, 2 * TILE - 12, TILE - 4, 4, '#64748b');
-    // 병실
-    ROOM_COLS.forEach(([a], i) => {
-      const x = a * TILE, y = TILE, w = 3 * TILE, hgt = 4 * TILE; const room = (opts.getRoom && opts.getRoom(i)) || {}; const done = room.status === 'done'; const empty = room.status === 'empty'; const hovered = hoverRoom === i;
-      rr(x + 2, y + 2, w - 4, hgt - 2, 10, done ? '#f0fdf4' : '#ffffff', hovered ? meta.accent : '#d1d5db');
-      rr(DOORS[i] * TILE + 5, 5 * TILE + 1, TILE - 10, TILE - 2, 4, hovered ? meta.accent : '#a16207');
-      ctx.fillStyle = '#374151'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'left'; ctx.fillText(`${floor}0${i + 1}호`, x + 8, y + 14);
-      rr(x + 14, y + 26, w - 28, 46, 8, '#e5ecf5', '#cbd5e1'); rr(x + 18, y + 30, 16, 38, 5, '#fff', '#e2e8f0');
-      if (!empty) {
-        const s = room.pediatric ? 0.75 : 1; const px = x + w / 2 + 8, py = y + 49;
-        rr(px - 18 * s, py - 9 * s, 46 * s, 18 * s, 8 * s, done ? '#bbf7d0' : '#cfe3ff');
-        ctx.beginPath(); ctx.arc(px - 24 * s, py, 8 * s, 0, Math.PI * 2); ctx.fillStyle = '#f6d3b5'; ctx.fill();
-        if (!done && Math.floor(ts / 600) % 2 === 0) { ctx.fillStyle = '#e5484d'; ctx.beginPath(); ctx.arc(px + 16, py - 13, 4, 0, Math.PI * 2); ctx.fill(); }
-      }
-      ctx.fillStyle = done ? '#15803d' : '#4b5563'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText(room.label || '빈 병실', x + w / 2, y + hgt - 22);
-      ctx.fillStyle = done ? '#16a34a' : (empty ? '#9ca3af' : '#0F7A4D'); ctx.font = 'bold 11px sans-serif';
-      ctx.fillText(done ? '✓ 치료 완료' : empty ? '—' : '대기 중', x + w / 2, y + hgt - 8);
-    });
-    // 입장 힌트
+    ctx.clearRect(0, 0, W, H);
+    drawBackground(meta); drawElevator(ts);
+    ROOM_COLS.forEach((_, i) => drawRoom(i, meta, ts));
     if (player.r === 6 && !player.path.length) {
-      let hintX = null, text = '';
-      if (DOORS.includes(player.c)) { hintX = player.c * TILE + TILE / 2; text = U.isTouch ? '↑ 터치 입장' : 'Enter 입장'; }
-      else if (player.c <= 1) { hintX = TILE; text = U.isTouch ? '↑ 터치 탑승' : 'Enter 탑승'; }
-      if (hintX != null) { rr(hintX - 36, 5 * TILE - 22, 72, 18, 9, '#111827'); ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(text, hintX, 5 * TILE - 13); }
+      let hintX = null, t = '';
+      if (DOORS.includes(player.c)) { hintX = player.c * TILE + TILE / 2; t = U.isTouch ? '↑ 터치 입장' : 'Enter 입장'; }
+      else if (player.c <= 1) { hintX = TILE; t = U.isTouch ? '↑ 터치 탑승' : 'Enter 탑승'; }
+      if (hintX != null) pill(t, hintX, 5 * TILE - 13, '#111827', '#fff', 'bold 10px sans-serif');
     }
-    // 플레이어(치료사)
-    const px = (player.x + 0.5) * TILE, py = (player.y + 0.5) * TILE; const bob = player.path.length ? Math.sin(player.step) * 1.5 : 0;
-    ctx.fillStyle = 'rgba(0,0,0,.15)'; ctx.beginPath(); ctx.ellipse(px, py + 12, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
-    rr(px - 9, py - 4 + bob, 18, 18, 6, '#ffffff', '#cbd5e1');
-    ctx.fillStyle = '#0F7A4D'; ctx.fillRect(px - 2, py - 2 + bob, 4, 10);
-    ctx.beginPath(); ctx.arc(px, py - 10 + bob, 8, 0, Math.PI * 2); ctx.fillStyle = '#f6d3b5'; ctx.fill();
-    ctx.fillStyle = '#3b2a20'; ctx.beginPath(); ctx.arc(px, py - 12 + bob, 8, Math.PI, 0); ctx.fill();
-    if (player.dir !== 'up') { const ex = player.dir === 'left' ? -3 : player.dir === 'right' ? 3 : 0; ctx.fillStyle = '#333'; ctx.fillRect(px - 3 + ex, py - 10 + bob, 2, 2); ctx.fillRect(px + 1 + ex, py - 10 + bob, 2, 2); }
+    drawPlayer();
   }
   function setFloor(f) { floor = f; player.c = 2; player.r = 6; player.x = 2; player.y = 6; player.path = []; }
   return { mount, destroy, setFloor, move, resize, FLOOR_META, get floor() { return floor; } };
