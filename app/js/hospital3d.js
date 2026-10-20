@@ -95,7 +95,7 @@ window.Hospital3D = (() => {
     g.userData.legs = legs; g.userData.arms = arms;
     // 이름표(머리 위)
     const tag = sprite([{ text: `${female ? '👩‍⚕️' : '👨‍⚕️'} ${info.name} 치료사` }], { w: 1.4, border: '#0F7A4D', depthTest: false }); tag.position.set(0, 2.02, 0); tag.renderOrder = 11; g.add(tag); world.nameTag = tag;
-    loadGlbAvatar([info.glb, female ? CDN_GLB.F : CDN_GLB.M].filter(Boolean), g, female);
+    loadGlbAvatar([info.glb, female ? '' : CDN_GLB.M].filter(Boolean), g, female); // 여자 기본 공개 모델은 평상복이라 치료사로는 쓰지 않음(내장 치료복 캐릭터 유지)
   }
   // ---------- GLB 공용 로더(치료사·환자) ----------
   const ensureGltf = () => (THREE.GLTFLoader ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'; sc.onload = res; sc.onerror = () => rej(new Error('GLTFLoader 로드 실패')); document.head.append(sc); }));
@@ -140,9 +140,9 @@ window.Hospital3D = (() => {
       if (!o.isMesh) return; const nm = o.name || '';
       if (/Headwear|Glasses/i.test(nm)) { o.visible = false; return; }
       if (/Beard/i.test(nm) && kind === 'therapist') { o.visible = false; return; }
-      if (/^Ch0\d/.test(nm) && kind === 'therapist' && o.material && o.material.map && o.material.map.image && !o.material.userData.recolored) { // Mixamo 'Michelle' 같은 단일 텍스처 모델: 노란 바지만 치료복 색으로
+      if (/^Ch0\d/.test(nm) && o.material && o.material.map && o.material.map.image && !o.material.userData.recolored) { // Mixamo 'Michelle' 같은 단일 텍스처 모델: 노란 바지만 치료복/환자복 색으로
         try { const img = o.material.map.image; const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height; const x = cv.getContext('2d'); x.drawImage(img, 0, 0); const id = x.getImageData(0, 0, cv.width, cv.height); const d = id.data;
-          for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], bl = d[i + 2]; const mx = Math.max(r, g, bl), mn = Math.min(r, g, bl); if (mx === mn || mx === 0) continue; const sat = (mx - mn) / mx; let h = mx === r ? ((g - bl) / (mx - mn)) % 6 : mx === g ? (bl - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4; h *= 60; if (h < 0) h += 360; if (sat > .35 && h >= 38 && h <= 68) { const l = mx / 255; d[i] = Math.round(60 * l); d[i + 1] = Math.round(170 * l); d[i + 2] = Math.round(152 * l); } }
+          for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], bl = d[i + 2]; const mx = Math.max(r, g, bl), mn = Math.min(r, g, bl); if (mx === mn || mx === 0) continue; const sat = (mx - mn) / mx; let h = mx === r ? ((g - bl) / (mx - mn)) % 6 : mx === g ? (bl - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4; h *= 60; if (h < 0) h += 360; if (sat > .35 && h >= 38 && h <= 68) { const l = mx / 255; const c = kind === 'therapist' ? [60, 170, 152] : [185, 205, 230]; d[i] = Math.round(c[0] * l); d[i + 1] = Math.round(c[1] * l); d[i + 2] = Math.round(c[2] * l); } }
           x.putImageData(id, 0, 0); const m = o.material.clone(); const tx = new THREE.CanvasTexture(cv); tx.flipY = false; tx.encoding = o.material.map.encoding; m.map = tx; m.userData.recolored = true; m.needsUpdate = true; o.material = m; } catch (e) { /* 실패하면 원본 유지 */ }
         return;
       }

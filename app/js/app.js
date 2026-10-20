@@ -95,7 +95,7 @@ window.App = (() => {
       h('ul', { class: 'tips' }, h('li', {}, `각 환자당 최대 ${perStep * 2}문항(평가 ${perStep} + 중재 ${perStep}), 즉시 채점·해설`), h('li', {}, '🧊 1인칭 3D 병원: ↑↓(W/S) 걷기, ←→ 돌기, 화면 드래그로 둘러보기. 병실을 클릭하면 침대까지 자동 이동'), h('li', {}, '👆 침대의 환자를 클릭하면 평가 시작 · 병실은 01호부터 순서대로 진행'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 70}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
   }
   // 치료사 캐릭터(성별·외부 GLB)
-  const avatarSex = () => (user && user.sex) || Store.getPref('avatar:' + (user ? user.studentId : 'anon'), '여'); // 회원가입 때 고른 성별(계정)이 우선
+  const avatarSex = () => Store.getPref('avatar:' + (user ? user.studentId : 'anon'), null) || (user && user.sex) || '여'; // 본인이 고른 값(가입 시 저장) 우선, 없으면 계정 성별
   const PUB = () => window.PT_CONFIG || {};
   const patientGlbInfo = () => { const S = Store.settings, C = PUB(); const g = k => S[k] || C[k] || ''; return { F: g('patientGlbF'), M: g('patientGlbM'), child: g('patientGlbChild'), elderF: g('patientGlbElderF'), elderM: g('patientGlbElderM') }; };
   const playerInfo = () => { const sex = avatarSex(); const glb = sex === '남' ? (Store.settings.avatarGlbM || PUB().avatarGlbM || '') : (Store.settings.avatarGlbF || PUB().avatarGlbF || ''); return { name: user ? user.name : '치료사', sex, glb }; };
