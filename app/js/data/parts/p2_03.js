@@ -21,7 +21,7 @@ window.PT_CASES[2].push(
 },
 {
  id:"2f-08", title:"만성 발목 불안정성", sub:"반복 염좌 · 고유감각 결손", dx:"왼쪽 만성 발목 불안정성(CAI)",
- patient:{name:"배드민턴 선수 고은지", age:29, sex:"여", job:"배드민턴 동호회", region:"ankle_L", posture:"supine"},
+ patient:{name:"고은지", age:29, sex:"여", job:"배드민턴 동호회", region:"ankle_L", posture:"supine"},
  S:{chief:"발목이 자꾸 꺾여요. 울퉁불퉁한 길에서 불안해요.", chat:[
   ["염좌는 몇 번이나 있었나요?","2년 동안 5번이요. 처음엔 크게 다쳤고 그 뒤로 자꾸 접질려요."],
   ["지금 통증은요?","평소엔 없어요. 꺾일 것 같은 불안감이 커요."],
