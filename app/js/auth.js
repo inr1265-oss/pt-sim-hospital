@@ -12,6 +12,8 @@ window.Auth = (() => {
       const name = h('input', { class: 'input', type: 'text', placeholder: '이름', maxlength: '20', autocomplete: 'name' });
       const pin = h('input', { class: 'input', type: 'password', inputmode: 'numeric', placeholder: '비밀번호 (숫자 4~6자리)', maxlength: '6', autocomplete: 'current-password' });
       const pin2 = h('input', { class: 'input', type: 'password', inputmode: 'numeric', placeholder: '비밀번호 확인', maxlength: '6' });
+      let sex = '여'; const sexBtns = ['여', '남'].map(v => h('button', { type: 'button', class: 'subj' + (v === sex ? ' active' : ''), onClick: () => { sex = v; sexBtns.forEach(b => b.classList.toggle('active', b.textContent.includes(v))); } }, v === '여' ? '👩‍⚕️ 여자 치료사' : '👨‍⚕️ 남자 치료사'));
+      const sexRow = h('div', { class: 'row wrap' }, h('span', { class: 'small muted' }, '내 치료사 캐릭터'), sexBtns);
       const msg = h('div', { class: 'form-msg' });
       const btn = h('button', { class: 'btn primary block', onClick: submit }, mode === 'login' ? '로그인' : '가입 신청');
       async function submit() {
@@ -25,7 +27,8 @@ window.Auth = (() => {
             const nm = name.value.trim();
             if (nm.length < 2) { msg.textContent = '이름을 입력하세요.'; btn.disabled = false; return; }
             if (p !== pin2.value.trim()) { msg.textContent = '비밀번호 확인이 일치하지 않습니다.'; btn.disabled = false; return; }
-            await Store.signup({ studentId: id, name: nm, pinHash: ph });
+            await Store.signup({ studentId: id, name: nm, pinHash: ph, sex });
+            Store.setPref('avatar:' + id, sex);
             toast('가입 신청 완료! 교수님 승인 후 로그인할 수 있어요.', 'ok'); mode = 'login'; draw(); return;
           }
           const user = await Store.login(id, ph);
@@ -33,7 +36,8 @@ window.Auth = (() => {
             msg.textContent = user.status === 'rejected' ? '가입이 거절되었습니다. 교수님께 문의하세요.' : '승인 대기 중입니다. 교수님 승인 후 이용할 수 있어요.';
             btn.disabled = false; return;
           }
-          const sess = { id: user.id, studentId: user.studentId, name: user.name };
+          const sess = { id: user.id, studentId: user.studentId, name: user.name, sex: user.sex || '여' };
+          if (user.sex && !Store.getPref('avatar:' + user.studentId, null)) Store.setPref('avatar:' + user.studentId, user.sex);
           Store.setSession(sess); App.onLogin(sess);
         } catch (e) { msg.textContent = e.message; }
         btn.disabled = false;
@@ -42,7 +46,7 @@ window.Auth = (() => {
       U.append(wrap, 
         h('div', { class: 'auth-logo' }, h('div', { class: 'logo-mark' }, '🏥'), h('h1', { text: Store.settings.appName }), h('p', { class: 'muted', text: Store.settings.schoolName + ' · 임상 시뮬레이션 학습' })),
         tabs,
-        h('div', { class: 'form' }, sid, mode === 'signup' ? name : null, pin, mode === 'signup' ? pin2 : null, msg, btn),
+        h('div', { class: 'form' }, sid, mode === 'signup' ? name : null, pin, mode === 'signup' ? pin2 : null, mode === 'signup' ? sexRow : null, msg, btn),
         h('p', { class: 'tiny muted' }, mode === 'signup'
           ? '가입 후 교수님(관리자) 승인이 필요합니다. 학번·이름·비밀번호 해시값만 저장되며 외부 서버로 전송되지 않습니다.'
           : '처음이신가요? 회원가입 탭에서 학번으로 가입 신청하세요.'),

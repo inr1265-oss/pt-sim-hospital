@@ -60,6 +60,7 @@ window.App = (() => {
     const subjectBar = h('div', { class: 'subject-bar' }, h('span', { class: 'lbl' }, '내 과목'),
       [1, 2, 3, 4].map(f => h('button', { class: 'subj' + (subject === f ? ' active' : ''), onClick: () => setSubject(f) }, `${FLOOR[f].icon} ${FLOOR[f].short}`)),
       h('button', { class: 'subj' + (subject === 0 ? ' active' : ''), onClick: () => setSubject(0) }, '전체'));
+    const avatarBar = h('div', { class: 'subject-bar' }, h('span', { class: 'lbl' }, '내 치료사 캐릭터'), ['여', '남'].map(v => h('button', { class: 'subj' + (avatarSex() === v ? ' active' : ''), onClick: () => setAvatarSex(v) }, v === '여' ? '👩‍⚕️ 여자 치료사' : '👨‍⚕️ 남자 치료사')), h('span', { class: 'tiny muted' }, playerInfo().glb ? '외부 3D 아바타 사용 중' : '병원에서 내 이름표를 단 캐릭터로 보여요'));
     const quick = subject ? h('div', { class: 'card quick' },
       h('div', {}, h('div', { class: 'q-title' }, `${FLOOR[subject].icon} ${subject}F ${FLOOR[subject].name}`), h('div', { class: 'muted small' }, FLOOR[subject].desc), h('div', { class: 'tiny muted' }, `케이스 ${Store.casesForFloor(subject).length}개 · 평가는 ${target}문항, 연습은 무제한`)),
       h('div', { class: 'q-actions' }, h('button', { class: 'btn primary', onClick: () => startMode('floor', subject) }, `📝 평가 시작`), h('button', { class: 'btn soft', onClick: () => startMode('practice', subject) }, '🎮 연습하기')))
@@ -68,7 +69,7 @@ window.App = (() => {
       h('div', { class: 'hero' }, h('h2', {}, `안녕하세요, ${user.name} 님 👋`), h('p', { class: 'muted' }, `${Store.settings.schoolName} 시뮬레이션 병원입니다. 환자를 SOAP로 평가하고 중재를 선택하세요. ${target}문항 중 ${passScore}점 이상이면 합격입니다.`),
         h('div', { class: 'row wrap' }, best != null ? h('span', { class: 'tag soft' }, `최고 ${best}점`) : null, my.length ? h('span', { class: 'tag soft' }, `응시 ${my.length}회`) : null, my.some(r => r.pass) ? h('span', { class: 'tag ok' }, '✓ 통과') : null, h('span', { class: 'tag ' + (ai ? 'ai' : 'soft') }, ai ? '🤖 AI 튜터 켜짐' : 'AI 튜터 꺼짐'))),
       p ? h('div', { class: 'card resume' }, h('div', {}, h('b', { text: '진행 중인 평가가 있습니다' }), h('div', { class: 'muted small' }, `${MODE[Session.cfg.mode]} ${Session.cfg.floors.join('·')}F · ${p.answered}${isFinite(p.target) ? ' / ' + p.target : ''} 문항 답변`)), h('div', { class: 'row' }, h('button', { class: 'btn primary', onClick: () => show('hospital') }, '이어하기'), h('button', { class: 'btn ghost', onClick: async () => { if (await U.confirm('진행 중인 평가를 취소할까요? 답변 기록은 저장되지 않습니다.')) { Session.end(); renderHome(); } } }, '취소'))) : null,
-      subjectBar, quick,
+      subjectBar, avatarBar, quick,
       h('h3', { text: '🏥 종합 모드' }), modeCard(`종합 순회 평가 (${target}문항)`, '1층 문진실부터 4층까지 모든 층을 돌며 평가합니다. 층마다 5명의 환자가 랜덤 배정됩니다.', '🏥', () => startMode('full'), '정식 평가'),
       h('details', { class: 'more', open: !subject }, h('summary', {}, subject ? '다른 층(과목) 보기' : '🚪 층별 집중 모드'), h('div', { class: 'grid2' }, [1, 2, 3, 4].filter(f => f !== subject).map(f => modeCard(`${f}F ${FLOOR[f].name}`, FLOOR[f].desc, FLOOR[f].icon, () => startMode('floor', f), null, TINT[f])))),
       h('h3', { text: '🎮 연습 모드' }), modeCard('자유 탐색 (점수 미저장)', '모든 층을 자유롭게 오가며 환자를 만나 보세요. 정답·해설은 보여주지만 성적은 저장되지 않습니다.', '🎮', () => startMode('practice', subject || 1)),
@@ -89,9 +90,14 @@ window.App = (() => {
       h('p', {}, mode === 'full' ? `1층 문진실부터 시작합니다. 층마다 ${rpf}개 병실의 환자를 치료한 뒤 층 이동으로 다음 층에 가세요.` : mode === 'floor' ? `${floor}F ${FLOOR[floor].name}에서 ${target}문항이 출제됩니다. 환자 ${rpf}명을 모두 치료하면 새 환자가 배정됩니다.` : `${curFloor}F에서 시작합니다. 층 이동 버튼으로 어느 층이든 자유롭게 오갈 수 있고 점수는 저장되지 않습니다.`),
       h('ul', { class: 'tips' }, h('li', {}, `각 환자당 최대 ${perStep * 2}문항(평가 ${perStep} + 중재 ${perStep}), 즉시 채점·해설`), h('li', {}, '🧊 1인칭 3D 병원: ↑↓(W/S) 걷기, ←→ 돌기, 화면 드래그로 둘러보기. 병실을 클릭하면 침대까지 자동 이동'), h('li', {}, '👆 침대의 환자를 클릭하면 진료 시작 · 병실은 01호부터 순서대로 진행'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 70}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
   }
+  // 치료사 캐릭터(성별·외부 GLB)
+  const avatarSex = () => Store.getPref('avatar:' + (user ? user.studentId : 'anon'), (user && user.sex) || '여');
+  const PUB = () => window.PT_CONFIG || {};
+  const playerInfo = () => { const sex = avatarSex(); const glb = sex === '남' ? (Store.settings.avatarGlbM || PUB().avatarGlbM || '') : (Store.settings.avatarGlbF || PUB().avatarGlbF || ''); return { name: user ? user.name : '치료사', sex, glb }; };
+  function setAvatarSex(v) { Store.setPref('avatar:' + user.studentId, v); if (engine && engine.setPlayer) engine.setPlayer(); renderHome(); }
   // 순서대로 진행: 아직 치료하지 않은 가장 앞 병실만 진료 가능
   const nextRoom = () => (Session.state.rooms[curFloor] || []).findIndex(r => !r.done);
-  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Object.assign(Session.roomInfo(curFloor, i), { next: i === nextRoom() }), onEnterRoom: enterRoom, onElevator: elevator, onFail: () => toast('3D 병원을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.', 'err') }; }
+  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Object.assign(Session.roomInfo(curFloor, i), { next: i === nextRoom() }), player: playerInfo, onEnterRoom: enterRoom, onElevator: elevator, onFail: () => toast('3D 병원을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.', 'err') }; }
   function mountHospital() { if (engine) return; engine = Hospital3D; engine.mount($('#map3d'), hospitalOpts()); }
   function enterRoom(i) {
     const info = Session.roomInfo(curFloor, i);

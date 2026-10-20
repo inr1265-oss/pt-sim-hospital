@@ -5,7 +5,7 @@ window.Store = (() => {
     set(k, v) { try { localStorage.setItem('pt:' + k, JSON.stringify(v)); } catch (e) { console.warn('localStorage', e); } },
     del(k) { try { localStorage.removeItem('pt:' + k); } catch (e) { /* ignore */ } }
   };
-  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, avatarGlbF: '', avatarGlbM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
   const PUB = () => window.PT_CONFIG || {};
   const S = { remote: false, geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null };
 
@@ -35,11 +35,11 @@ window.Store = (() => {
 
   // ---- 사용자(학생) ----
   S.getUsers = async () => S.remote ? (await api('/users')).users : LS.get('users', []);
-  S.signup = async function ({ studentId, name, pinHash }) {
-    if (S.remote) return (await api('/signup', { method: 'POST', body: { studentId, name, pinHash } })).user;
+  S.signup = async function ({ studentId, name, pinHash, sex }) {
+    if (S.remote) return (await api('/signup', { method: 'POST', body: { studentId, name, pinHash, sex } })).user;
     const users = LS.get('users', []);
     if (users.some(u => u.studentId === studentId)) throw new Error('이미 가입 신청된 학번입니다.');
-    const user = { id: U.uid(), studentId, name, pinHash, status: 'pending', createdAt: Date.now() };
+    const user = { id: U.uid(), studentId, name, pinHash, sex: sex || '여', status: 'pending', createdAt: Date.now() };
     users.push(user); LS.set('users', users); return user;
   };
   S.login = async function (studentId, pinHash) {

@@ -4,5 +4,8 @@
 // 비워 두면 AI 기능은 서버 모드(server/config.json) 또는 관리자 콘솔에서 입력한 키가 있을 때만 켜집니다.
 window.PT_CONFIG = {
   geminiKey: "",
-  geminiModel: "gemini-2.5-flash"
+  geminiModel: "gemini-2.5-flash",
+  // (선택) 치료사 3D 아바타 GLB 공개 URL — 비우면 내장 캐릭터 사용. 예: Ready Player Me "https://models.readyplayer.me/<id>.glb"
+  avatarGlbF: "",
+  avatarGlbM: ""
 };

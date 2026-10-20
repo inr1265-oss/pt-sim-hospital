@@ -19,5 +19,10 @@ for (const floor of [1, 2, 3, 4]) {
     fs.writeFileSync(path.join(dir, fname), md, 'utf8');
   }
 }
+index += `
+## 연결
+- 공모전 출품: [[06_출품작_PT 시뮬레이션 병원]] — 2026 AI 기반 미래교육혁신사례 공모전(AIDX센터장 출품)
+- 상위: [[AIDX센터장 MOC]] · 앱 설명: [[21_Vibe Coding/01_AI 학습앱/README|README]]
+`;
 fs.writeFileSync(path.join(out, '00_케이스 색인.md'), index, 'utf8');
 console.log('케이스 노트 생성 완료 →', out);

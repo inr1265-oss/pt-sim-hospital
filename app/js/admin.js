@@ -103,6 +103,9 @@ window.Admin = (() => {
       h('div', { class: 'row mt' },
         h('button', { class: 'btn primary', onClick: async () => { const patch = {}; for (const k in f) { if (k === 'newPin') continue; patch[k] = (k === 'questionTarget' || k === 'passScore' || k === 'questionsPerStep') ? (Number(f[k].value) || s[k]) : f[k].value.trim(); } await Store.saveSettings(patch); toast('저장되었습니다', 'ok'); } }, '저장'),
         h('button', { class: 'btn ghost', onClick: async () => { try { toast('Gemini 연결 테스트 중…'); const t = await Gemini.ask('안녕하세요. 물리치료 튜터로서 한 문장으로 인사해 주세요.'); U.modal({ title: 'Gemini 응답', body: h('p', { text: t }) }); } catch (e) { U.modal({ title: 'Gemini 오류', body: h('p', { text: e.message }) }); } } }, '연결 테스트')),
+      h('h3', { class: 'mt' }, '🧑‍⚕️ 치료사 3D 아바타(선택)'),
+      h('p', { class: 'muted small' }, 'Genspark·Ready Player Me·Meshy 등에서 만든 사람 모델(GLB, 1.7 m 안팎, +z 정면)의 공개 URL을 넣으면 내장 캐릭터 대신 그 모델이 병원을 걸어 다닙니다. Mixamo 뼈 이름(LeftUpLeg 등)이 있으면 걷기 동작도 붙습니다. 비우면 내장 스크럽 캐릭터를 씁니다. 정적 배포에서 모든 학생에게 적용하려면 app/js/config.js 의 avatarGlbF / avatarGlbM 에 넣으세요.'),
+      field('avatarGlbF', '여자 치료사 GLB URL'), field('avatarGlbM', '남자 치료사 GLB URL'),
       h('h3', { class: 'mt' }, '🔐 관리자 PIN 변경'),
       h('div', { class: 'row' }, f.newPin = h('input', { class: 'input', type: 'password', placeholder: '새 PIN (숫자 4~8자리)', maxlength: '8' }), h('button', { class: 'btn ghost', onClick: async () => { const v = f.newPin.value.trim(); if (!/^\d{4,8}$/.test(v)) return toast('숫자 4~8자리로 입력하세요', 'err'); try { await Store.adminChangePin(v); toast('PIN 변경 완료', 'ok'); } catch (e) { toast(e.message, 'err'); } } }, '변경'))));
   }

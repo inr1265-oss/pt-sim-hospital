@@ -14,13 +14,13 @@ window.Hospital3D = (() => {
   const META = () => FLOOR_META;
   const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
   let canvas = null, opts = {}, floor = 1, renderer = null, scene = null, camera = null, raf = null, running = false, lastTs = 0, watchdog = null, built = false, G = null, hint = null, cross = null;
-  const world = { rooms: [], ground: null, labelKey: '', solids: [], clickables: [] };
+  const world = { rooms: [], ground: null, labelKey: '', solids: [], clickables: [], walls: [], avatar: null, nameTag: null, bones: null };
   const P = { x: 2.5, z: 1.7, yaw: Math.PI / 2, pitch: 0, bob: 0, wps: [], arrive: null, turnTo: null, impulse: null, lastInteract: 0 };
   const keys = new Set(); const drag = { on: false, id: null, x: 0, y: 0, moved: 0 };
 
   function loadThree() { return window.THREE ? Promise.resolve() : new Promise((res, rej) => { const s = document.createElement('script'); s.src = THREE_URL; s.onload = res; s.onerror = () => rej(new Error('Three.js 로드 실패(인터넷 연결 확인)')); document.head.append(s); }); }
   const mat = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: .88, metalness: .04 }, o));
-  function box(w, h, d, color, x, y, z, o, solid) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, o)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; G.add(m); if (solid) world.solids.push({ x0: x - w / 2 - R, x1: x + w / 2 + R, z0: z - d / 2 - R, z1: z + d / 2 + R }); return m; }
+  function box(w, h, d, color, x, y, z, o, solid) { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, o)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; G.add(m); if (solid) { world.solids.push({ x0: x - w / 2 - R, x1: x + w / 2 + R, z0: z - d / 2 - R, z1: z + d / 2 + R }); world.walls.push(m); } return m; }
   function plane(w, d, color, x, y, z, o) { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat(color, o)); m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true; G.add(m); return m; }
   function roundRect(x, px, py, w, h, r) { x.beginPath(); x.moveTo(px + r, py); x.arcTo(px + w, py, px + w, py + h, r); x.arcTo(px + w, py + h, px, py + h, r); x.arcTo(px, py + h, px, py, r); x.arcTo(px, py, px + w, py, r); x.closePath(); }
   function textTexture(lines, opt = {}) {
@@ -28,7 +28,7 @@ window.Hospital3D = (() => {
     x.fillStyle = opt.bg || 'rgba(255,255,255,.97)'; roundRect(x, 6, 6, 1012, 244, 48); x.fill();
     if (opt.border) { x.strokeStyle = opt.border; x.lineWidth = 12; roundRect(x, 6, 6, 1012, 244, 48); x.stroke(); }
     x.textAlign = 'center'; x.textBaseline = 'middle';
-    lines.forEach((ln, i) => { x.font = `${i === 0 ? 'bold 84px' : 'bold 60px'} Pretendard, "Malgun Gothic", sans-serif`; x.fillStyle = ln.color || (i === 0 ? '#14201A' : '#374151'); x.fillText(ln.text, 512, lines.length === 1 ? 128 : 84 + i * 92); });
+    lines.forEach((ln, i) => { let size = i === 0 ? 84 : 60; const font = n => `bold ${n}px Pretendard, "Malgun Gothic", sans-serif`; x.font = font(size); const w = x.measureText(ln.text).width; if (w > 950) { size = Math.max(30, Math.floor(size * 950 / w)); x.font = font(size); } x.fillStyle = ln.color || (i === 0 ? '#14201A' : '#374151'); x.fillText(ln.text, 512, lines.length === 1 ? 128 : 84 + i * 92); });
     const t = new THREE.CanvasTexture(cv); t.minFilter = THREE.LinearMipMapLinearFilter; t.anisotropy = 4; return t;
   }
   function sprite(lines, opt = {}) { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture(lines, opt), transparent: true, depthTest: opt.depthTest !== false })); sp.scale.set(opt.w || 2.8, (opt.w || 2.8) / 4, 1); return sp; }
@@ -37,14 +37,60 @@ window.Hospital3D = (() => {
   // ---------- 장면 ----------
   function buildScene() {
     scene = new THREE.Scene(); scene.background = new THREE.Color('#E9EEF3'); scene.fog = new THREE.Fog('#E9EEF3', 14, 30);
-    camera = new THREE.PerspectiveCamera(68, W / H, .05, 60);
+    camera = new THREE.PerspectiveCamera(60, W / H, .05, 60);
     scene.add(new THREE.HemisphereLight('#ffffff', '#b9c4d0', .85)); scene.add(new THREE.AmbientLight('#ffffff', .25));
     const dir = new THREE.DirectionalLight('#fff8ec', .55); dir.position.set(COLS / 2 + 5, 12, 8); dir.target.position.set(COLS / 2, 0, -1); scene.add(dir.target);
     dir.castShadow = true; dir.shadow.mapSize.set(2048, 2048); dir.shadow.camera.left = -14; dir.shadow.camera.right = 14; dir.shadow.camera.top = 10; dir.shadow.camera.bottom = -10; dir.shadow.camera.near = 1; dir.shadow.camera.far = 40; dir.shadow.bias = -0.0004; scene.add(dir);
     world.ground = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.MeshBasicMaterial({ visible: false })); world.ground.rotation.x = -Math.PI / 2; scene.add(world.ground);
-    buildFloor();
+    buildFloor(); buildAvatar();
   }
-  function clearGroup() { if (G) { scene.remove(G); G.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); } }); } G = new THREE.Group(); scene.add(G); world.rooms = []; world.solids = []; world.clickables = []; world.labelKey = ''; }
+  // ---------- 치료사 아바타(3인칭): 내장 스크럽 캐릭터 또는 외부 GLB ----------
+  const playerInfo = () => Object.assign({ name: '치료사', sex: '여', glb: '' }, (typeof opts.player === 'function' ? opts.player() : opts.player) || {});
+  function buildAvatar() {
+    if (world.avatar) { scene.remove(world.avatar); world.avatar = null; world.bones = null; }
+    const info = playerInfo(); const g = new THREE.Group(); world.avatar = g; scene.add(g);
+    const female = info.sex === '여';
+    const skin = mat('#F6D3B5'), scrub = mat('#2E9C8B'), scrubD = mat('#227B6E'), hair = mat(female ? '#3B2418' : '#2B1B12'), white = mat('#FFFFFF'), shoe = mat('#F3F4F6');
+    const add = (parent, geo, m, x, y, z) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.castShadow = true; parent.add(o); return o; };
+    // 몸통(스크럽 상의) + 바지 + 신발
+    add(g, new THREE.CylinderGeometry(female ? .17 : .2, female ? .2 : .22, .55, 18), scrub, 0, 1.05, 0);
+    add(g, new THREE.BoxGeometry(.16, .12, .02), white, 0, 1.18, -.21); // 이름표
+    add(g, new THREE.BoxGeometry(.26, .04, .25), scrubD, 0, .78, 0);
+    const legs = []; [-.09, .09].forEach(dx => { const lg = new THREE.Group(); lg.position.set(dx, .78, 0); add(lg, new THREE.CylinderGeometry(.075, .065, .72, 12), scrubD, 0, -.36, 0); add(lg, new THREE.BoxGeometry(.13, .07, .24), shoe, 0, -.76, -.04); g.add(lg); legs.push(lg); });
+    const arms = []; [-.27, .27].forEach(dx => { const ar = new THREE.Group(); ar.position.set(dx, 1.28, 0); add(ar, new THREE.CylinderGeometry(.06, .05, .22, 10), scrub, 0, -.1, 0); add(ar, new THREE.CylinderGeometry(.05, .045, .34, 10), skin, 0, -.38, 0); add(ar, new THREE.SphereGeometry(.055, 10, 8), skin, 0, -.57, 0); g.add(ar); arms.push(ar); });
+    // 목·머리·머리카락(얼굴은 -z 방향)
+    add(g, new THREE.CylinderGeometry(.06, .07, .1, 10), skin, 0, 1.36, 0);
+    add(g, new THREE.SphereGeometry(.16, 22, 18), skin, 0, 1.55, 0);
+    const cap = add(g, new THREE.SphereGeometry(.168, 22, 18, 0, Math.PI * 2, 0, Math.PI / 2), hair, 0, 1.56, 0); cap.rotation.x = .35;
+    if (female) { const tail = add(g, new THREE.SphereGeometry(.09, 12, 10), hair, 0, 1.5, .17); tail.scale.set(.8, 1.6, .8); }
+    [-.055, .055].forEach(dx => add(g, new THREE.SphereGeometry(.016, 8, 8), mat('#222'), dx, 1.57, -.15));
+    // 청진기(목에 두름)
+    const st = add(g, new THREE.TorusGeometry(.11, .012, 8, 20, Math.PI), mat('#374151'), 0, 1.3, -.12); st.rotation.x = Math.PI / 2 + .3;
+    g.userData.legs = legs; g.userData.arms = arms;
+    // 이름표(머리 위)
+    const tag = sprite([{ text: `${female ? '👩‍⚕️' : '👨‍⚕️'} ${info.name} 치료사` }], { w: 1.5, border: '#0F7A4D', depthTest: false }); tag.position.set(0, 2.05, 0); g.add(tag); world.nameTag = tag;
+    if (info.glb) loadGlbAvatar(info.glb, g, female);
+  }
+  function loadGlbAvatar(url, g, female) {
+    const ensure = () => (THREE.GLTFLoader ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'; sc.onload = res; sc.onerror = () => rej(new Error('GLTFLoader 로드 실패')); document.head.append(sc); }));
+    ensure().then(() => new Promise((res, rej) => new THREE.GLTFLoader().load(url, res, undefined, () => rej(new Error('모델을 내려받지 못했어요 (URL·CORS 확인)'))))).then(gltf => {
+      if (world.avatar !== g) return; const model = gltf.scene;
+      // 키 측정: 스킨드 메시는 바운딩박스가 부정확하므로 뼈(또는 정점) 월드 위치로 계산
+      model.updateMatrixWorld(true); let minY = Infinity, maxY = -Infinity; const v = new THREE.Vector3();
+      model.traverse(o => { if (o.isBone) { o.getWorldPosition(v); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); } });
+      if (!isFinite(minY) || maxY - minY < .05) { const bb = new THREE.Box3().setFromObject(model); minY = bb.min.y; maxY = bb.max.y; }
+      const h = (maxY - minY) || 1; const k = 1.7 / h; model.scale.setScalar(k); model.position.y = -minY * k; model.rotation.y = Math.PI; // GLB는 보통 +z를 바라봄 → -z로
+      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
+      // 내장 캐릭터 숨기고 GLB 표시
+      g.children.forEach(ch => { if (ch !== world.nameTag) ch.visible = false; }); g.add(model);
+      const find = names => { let b = null; model.traverse(o => { if (!b && o.isBone && names.some(n => o.name === n || o.name.endsWith(n))) b = o; }); return b; };
+      world.bones = { lUp: find(['LeftUpLeg', 'mixamorigLeftUpLeg']), rUp: find(['RightUpLeg', 'mixamorigRightUpLeg']), lArm: find(['LeftArm', 'mixamorigLeftArm']), rArm: find(['RightArm', 'mixamorigRightArm']) };
+      if (world.bones.lArm) { world.bones.lArm.rotation.z = -1.15; } if (world.bones.rArm) { world.bones.rArm.rotation.z = 1.15; } // T포즈 → 팔 내리기
+      if (U && U.toast) U.toast('외부 아바타를 불러왔어요.', 'ok');
+    }).catch(e => { if (U && U.toast) U.toast('외부 아바타 로드 실패: ' + e.message + ' (내장 캐릭터 사용)', 'err'); });
+  }
+  function setPlayer() { if (built) buildAvatar(); }
+  function clearGroup() { if (G) { scene.remove(G); G.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); }); } }); } G = new THREE.Group(); scene.add(G); world.rooms = []; world.solids = []; world.clickables = []; world.walls = []; world.labelKey = ''; }
   function buildFloor() {
     clearGroup(); const meta = META()[floor] || META()[1];
     // 복도 바닥·천장·벽
@@ -304,12 +350,23 @@ window.Hospital3D = (() => {
     }
     world.rooms.forEach(room => { if (room.lamp.visible) room.lamp.material.emissiveIntensity = Math.floor(ts / 600) % 2 ? 1 : .15; if (room.ring.visible) { const s = 1 + Math.sin(ts / 250) * .25; room.ring.scale.set(s, s, 1); } });
     G.traverse(o => { if (o.userData.balloon) o.position.y = 1.7 + Math.sin(ts / 600 + o.position.x) * .08; });
-    const bobY = Math.sin(P.bob) * .035, bobX = Math.cos(P.bob / 2) * .02;
-    camera.position.set(P.x + bobX * Math.cos(P.yaw), EYE + bobY, P.z + bobX * Math.sin(P.yaw));
-    const fx = Math.sin(P.yaw) * Math.cos(P.pitch), fy = Math.sin(P.pitch), fz = -Math.cos(P.yaw) * Math.cos(P.pitch);
-    camera.lookAt(camera.position.x + fx, camera.position.y + fy, camera.position.z + fz);
+    // 아바타(3인칭) + 걷기 애니메이션
+    const av = world.avatar; const moving = P.bob > 0;
+    if (av) {
+      av.position.set(P.x, 0, P.z); av.rotation.y = -P.yaw;
+      const sw = moving ? Math.sin(P.bob) : 0; const legs = av.userData.legs || [], arms = av.userData.arms || [];
+      legs.forEach((lg, i) => lg.rotation.x = sw * .6 * (i ? -1 : 1)); arms.forEach((ar, i) => ar.rotation.x = sw * .5 * (i ? 1 : -1));
+      av.position.y = moving ? Math.abs(Math.sin(P.bob)) * .03 : 0;
+      if (world.bones) { const b = world.bones; if (b.lUp) b.lUp.rotation.x = sw * .5; if (b.rUp) b.rUp.rotation.x = -sw * .5; if (b.lArm) b.lArm.rotation.x = -sw * .4; if (b.rArm) b.rArm.rotation.x = sw * .4; }
+    }
+    // 어깨너머 카메라(벽 뒤로 빠지지 않도록 거리 조절)
+    const fx0 = Math.sin(P.yaw), fz0 = -Math.cos(P.yaw); const DIST = 2.6; const camH = Math.max(1.3, Math.min(3.2, 2.0 - P.pitch * 1.6));
+    const head = new THREE.Vector3(P.x, 1.5, P.z); const want = new THREE.Vector3(P.x - fx0 * DIST, camH, P.z - fz0 * DIST);
+    let dist = DIST; if (world.walls.length) { if (!rc.r) rc.r = new THREE.Raycaster(); const dirv = want.clone().sub(head); const len = dirv.length(); dirv.normalize(); rc.r.set(head, dirv); rc.r.far = len; const hit = rc.r.intersectObjects(world.walls, false)[0]; if (hit) dist = Math.max(.7, hit.distance - .25); }
+    const t = dist / DIST; camera.position.set(head.x + (want.x - head.x) * t, head.y + (want.y - head.y) * t, head.z + (want.z - head.z) * t);
+    camera.lookAt(P.x + fx0 * 1.6, 1.25 + P.pitch * 1.4, P.z + fz0 * 1.6);
     renderer.render(scene, camera);
   }
   function setFloor(f) { floor = f; if (built) { buildFloor(); resetPlayer(); setHint(`${f}F 에 도착했습니다. 병실을 클릭하거나 걸어가세요.`, 2500); } }
-  return { mount, destroy, setFloor, move, resize, FLOOR_META, get floor() { return floor; }, get pos() { return { x: P.x, z: P.z, yaw: P.yaw, room: curRoom(), wps: P.wps.length }; }, _debug: () => ({ camera, world, P, click, goToRoom, interact }) };
+  return { mount, destroy, setFloor, move, resize, setPlayer, FLOOR_META, get floor() { return floor; }, get pos() { return { x: P.x, z: P.z, yaw: P.yaw, room: curRoom(), wps: P.wps.length }; }, _debug: () => ({ camera, world, P, click, goToRoom, interact }) };
 })();

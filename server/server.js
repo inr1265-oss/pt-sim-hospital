@@ -14,7 +14,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; cha
 const send = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
 const body = req => new Promise((resolve, reject) => { let b = ''; req.on('data', c => { b += c; if (b.length > 2e6) req.destroy(); }); req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(new Error('잘못된 JSON')); } }); });
 const isAdmin = (req, url) => (req.headers['x-admin-pin'] || url.searchParams.get('pin')) === String(config.adminPin);
-const publicSettings = () => ({ questionTarget: config.questionTarget, passScore: config.passScore, schoolName: config.schoolName, appName: config.appName });
+const publicSettings = () => ({ questionTarget: config.questionTarget, questionsPerStep: config.questionsPerStep, passScore: config.passScore, schoolName: config.schoolName, appName: config.appName, avatarGlbF: config.avatarGlbF || '', avatarGlbM: config.avatarGlbM || '' });
 const csvEsc = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
 const fmt = d => { const x = new Date(d); const p = n => String(n).padStart(2, '0'); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())} ${p(x.getHours())}:${p(x.getMinutes())}`; };
 function appendCsv(r) {
@@ -44,7 +44,7 @@ async function api(req, res, url) {
   if (p === '/signup' && m === 'POST') {
     const b = await body(req); if (!/^\d{7,10}$/.test(b.studentId || '') || !b.name || !b.pinHash) return send(res, 400, { error: '입력값이 올바르지 않습니다.' });
     const users = readJson('users.json', []); if (users.some(u => u.studentId === b.studentId)) return send(res, 409, { error: '이미 가입 신청된 학번입니다.' });
-    const user = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), studentId: b.studentId, name: String(b.name).slice(0, 20), pinHash: b.pinHash, status: 'pending', createdAt: Date.now() };
+    const user = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8), studentId: b.studentId, name: String(b.name).slice(0, 20), pinHash: b.pinHash, sex: b.sex === '남' ? '남' : '여', status: 'pending', createdAt: Date.now() };
     users.push(user); writeJson('users.json', users); const { pinHash, ...safe } = user; return send(res, 200, { user: safe });
   }
   if (p === '/login' && m === 'POST') {
@@ -72,7 +72,7 @@ async function api(req, res, url) {
   if (p === '/users' && m === 'GET') return send(res, 200, { users: readJson('users.json', []).map(({ pinHash, ...u }) => u) });
   if (p === '/users/status' && m === 'POST') { const b = await body(req); const users = readJson('users.json', []); const u = users.find(u => u.id === b.id); if (!u) return send(res, 404, { error: '없음' }); u.status = b.status; if (b.status === 'approved') u.approvedAt = Date.now(); writeJson('users.json', users); return send(res, 200, { ok: true }); }
   if (p === '/users/delete' && m === 'POST') { const b = await body(req); writeJson('users.json', readJson('users.json', []).filter(u => u.id !== b.id)); return send(res, 200, { ok: true }); }
-  if (p === '/settings' && m === 'POST') { const b = await body(req); ['questionTarget', 'passScore', 'schoolName', 'appName', 'geminiModel'].forEach(k => { if (b[k] != null && b[k] !== '') config[k] = b[k]; }); fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8'); return send(res, 200, { ok: true }); }
+  if (p === '/settings' && m === 'POST') { const b = await body(req); ['questionTarget', 'questionsPerStep', 'passScore', 'schoolName', 'appName', 'geminiModel', 'aiMode', 'avatarGlbF', 'avatarGlbM'].forEach(k => { if (b[k] != null && b[k] !== '') config[k] = b[k]; }); fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8'); return send(res, 200, { ok: true }); }
   if (p === '/admin/pin' && m === 'POST') { const b = await body(req); if (!/^\d{4,8}$/.test(String(b.pin))) return send(res, 400, { error: 'PIN 형식' }); config.adminPin = String(b.pin); fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8'); return send(res, 200, { ok: true }); }
   if (p === '/results.csv' && m === 'GET') { const f = file('results.csv'); if (!fs.existsSync(f)) return send(res, 404, { error: '결과 없음' }); res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="results.csv"' }); return fs.createReadStream(f).pipe(res); }
   return send(res, 404, { error: 'not found' });
