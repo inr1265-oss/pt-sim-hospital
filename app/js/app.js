@@ -97,11 +97,12 @@ window.App = (() => {
   // 치료사 캐릭터(성별·외부 GLB)
   const avatarSex = () => Store.getPref('avatar:' + (user ? user.studentId : 'anon'), (user && user.sex) || '여');
   const PUB = () => window.PT_CONFIG || {};
+  const patientGlbInfo = () => { const S = Store.settings, C = PUB(); const g = k => S[k] || C[k] || ''; return { F: g('patientGlbF'), M: g('patientGlbM'), child: g('patientGlbChild'), elderF: g('patientGlbElderF'), elderM: g('patientGlbElderM') }; };
   const playerInfo = () => { const sex = avatarSex(); const glb = sex === '남' ? (Store.settings.avatarGlbM || PUB().avatarGlbM || '') : (Store.settings.avatarGlbF || PUB().avatarGlbF || ''); return { name: user ? user.name : '치료사', sex, glb }; };
   function setAvatarSex(v) { Store.setPref('avatar:' + user.studentId, v); if (engine && engine.setPlayer) engine.setPlayer(); renderHome(); }
   // 순서대로 진행: 아직 치료하지 않은 가장 앞 병실만 평가 가능
   const nextRoom = () => (Session.state.rooms[curFloor] || []).findIndex(r => !r.done);
-  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Object.assign(Session.roomInfo(curFloor, i), { next: i === nextRoom() }), player: playerInfo, onDoor: showPatientCard, onEnterRoom: enterRoom, onElevator: elevator, onFail: () => toast('3D 병원을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.', 'err') }; }
+  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Object.assign(Session.roomInfo(curFloor, i), { next: i === nextRoom() }), player: playerInfo, patientGlb: patientGlbInfo, onDoor: showPatientCard, onEnterRoom: enterRoom, onElevator: elevator, onFail: () => toast('3D 병원을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.', 'err') }; }
   function mountHospital() { if (engine) return; engine = Hospital3D; engine.mount($('#map3d'), hospitalOpts()); }
   // 명판 가까이에서 Enter/클릭 → 큰 환자 정보 카드
   function showPatientCard(i) {

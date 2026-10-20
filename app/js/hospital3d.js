@@ -97,22 +97,46 @@ window.Hospital3D = (() => {
     const tag = sprite([{ text: `${female ? '👩‍⚕️' : '👨‍⚕️'} ${info.name} 치료사` }], { w: 1.4, border: '#0F7A4D', depthTest: false }); tag.position.set(0, 2.02, 0); tag.renderOrder = 11; g.add(tag); world.nameTag = tag;
     if (info.glb) loadGlbAvatar(info.glb, g, female);
   }
+  // ---------- GLB 공용 로더(치료사·환자) ----------
+  const ensureGltf = () => (THREE.GLTFLoader ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'; sc.onload = res; sc.onerror = () => rej(new Error('GLTFLoader 로드 실패')); document.head.append(sc); }));
+  function loadGlb(url) { if (window.THREE && THREE.Cache) THREE.Cache.enabled = true; return ensureGltf().then(() => new Promise((res, rej) => new THREE.GLTFLoader().load(url, res, undefined, () => rej(new Error('모델을 내려받지 못했어요 (URL·CORS 확인)'))))); }
+  function findBone(model, names) { let b = null; model.traverse(o => { if (!b && o.isBone && names.some(n => o.name === n || o.name.endsWith(n))) b = o; }); return b; }
+  function humanBones(model) { const f = n => findBone(model, [n, 'mixamorig' + n]); return { hips: f('Hips'), lUp: f('LeftUpLeg'), rUp: f('RightUpLeg'), lLeg: f('LeftLeg'), rLeg: f('RightLeg'), lArm: f('LeftArm'), rArm: f('RightArm'), lFore: f('LeftForeArm'), rFore: f('RightForeArm') }; }
+  function normalizeHeight(model, target) {
+    model.updateMatrixWorld(true); let minY = Infinity, maxY = -Infinity; const v = new THREE.Vector3();
+    model.traverse(o => { if (o.isBone) { o.getWorldPosition(v); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); } });
+    if (!isFinite(minY) || maxY - minY < .05) { const bb = new THREE.Box3().setFromObject(model); minY = bb.min.y; maxY = bb.max.y; }
+    const h = (maxY - minY) || 1; const k = target / h; model.scale.setScalar(k); model.position.y = -minY * k; model.updateMatrixWorld(true); return k;
+  }
+  const patientGlbUrl = info => { const u = (typeof opts.patientGlb === 'function' ? opts.patientGlb() : opts.patientGlb) || {}; const elderly = !info.pediatric && Number(info.age) >= 60; if (info.pediatric) return u.child || ''; if (elderly) return (info.sex === '남' ? (u.elderM || u.M) : (u.elderF || u.F)) || ''; return (info.sex === '남' ? u.M : u.F) || ''; };
+  let glbWarned = false;
+  function applyPatientGlb(room, info, bx, bz, topY, type) {
+    const url = patientGlbUrl(info); if (!url || !room.patient) return; const pose = room.pose; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .3 : .36);
+    loadGlb(url).then(gltf => {
+      if (!world.rooms.includes(room)) return; const model = gltf.scene; normalizeHeight(model, info.pediatric ? (Number(info.age) < 2 ? .8 : 1.15) : 1.7); const b = humanBones(model);
+      const wrap = new THREE.Group(); wrap.add(model); // model: 발이 원점, 정면 +z
+      if (b.lArm) b.lArm.rotation.z = -1.15; if (b.rArm) b.rArm.rotation.z = 1.15; // T포즈 팔 내리기
+      if (pose === 'sitting') {
+        if (b.lUp && b.rUp && b.hips) {
+          b.lUp.rotation.x -= 1.5; b.rUp.rotation.x -= 1.5; if (b.lLeg) b.lLeg.rotation.x += 1.5; if (b.rLeg) b.rLeg.rotation.x += 1.5;
+          model.updateMatrixWorld(true); const hp = new THREE.Vector3(); b.hips.getWorldPosition(hp);
+          wrap.position.set(bx + edgeX, topY + .06 - hp.y, bz + .1); wrap.rotation.y = Math.PI / 2;
+        } else { wrap.position.set(bx + edgeX + .5, 0, bz + .1); wrap.rotation.y = Math.PI / 2; } // 리깅이 없으면 침대 옆에 서 있음
+      } else {
+        wrap.rotation.x = -Math.PI / 2; if (pose === 'prone') wrap.rotateOnWorldAxis(new THREE.Vector3(0, 0, 1), Math.PI);
+        wrap.position.set(bx, topY + (pose === 'prone' ? .16 : .13), bz + .95);
+      }
+      model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.userData.room = room.i; o.userData.patient = true; world.clickables.push(o); } });
+      room.patient.visible = false; room.glb = wrap; G.add(wrap);
+    }).catch(e => { if (!glbWarned && U && U.toast) { glbWarned = true; U.toast('환자 모델 로드 실패: ' + e.message + ' (내장 환자 사용)', 'err'); } });
+  }
   function loadGlbAvatar(url, g, female) {
-    const ensure = () => (THREE.GLTFLoader ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'; sc.onload = res; sc.onerror = () => rej(new Error('GLTFLoader 로드 실패')); document.head.append(sc); }));
-    ensure().then(() => new Promise((res, rej) => new THREE.GLTFLoader().load(url, res, undefined, () => rej(new Error('모델을 내려받지 못했어요 (URL·CORS 확인)'))))).then(gltf => {
-      if (world.avatar !== g) return; const model = gltf.scene;
-      // 키 측정: 스킨드 메시는 바운딩박스가 부정확하므로 뼈(또는 정점) 월드 위치로 계산
-      model.updateMatrixWorld(true); let minY = Infinity, maxY = -Infinity; const v = new THREE.Vector3();
-      model.traverse(o => { if (o.isBone) { o.getWorldPosition(v); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); } });
-      if (!isFinite(minY) || maxY - minY < .05) { const bb = new THREE.Box3().setFromObject(model); minY = bb.min.y; maxY = bb.max.y; }
-      const h = (maxY - minY) || 1; const k = 1.7 / h; model.scale.setScalar(k); model.position.y = -minY * k; model.rotation.y = Math.PI; // GLB는 보통 +z를 바라봄 → -z로
+    loadGlb(url).then(gltf => {
+      if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.7); model.rotation.y = Math.PI; // 보통 +z를 바라봄 → -z로
       model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
-      // 내장 캐릭터 숨기고 GLB 표시
       g.children.forEach(ch => { if (ch !== world.nameTag) ch.visible = false; }); g.add(model);
-      const find = names => { let b = null; model.traverse(o => { if (!b && o.isBone && names.some(n => o.name === n || o.name.endsWith(n))) b = o; }); return b; };
-      world.bones = { lUp: find(['LeftUpLeg', 'mixamorigLeftUpLeg']), rUp: find(['RightUpLeg', 'mixamorigRightUpLeg']), lArm: find(['LeftArm', 'mixamorigLeftArm']), rArm: find(['RightArm', 'mixamorigRightArm']) };
-      if (world.bones.lArm) { world.bones.lArm.rotation.z = -1.15; } if (world.bones.rArm) { world.bones.rArm.rotation.z = 1.15; } // T포즈 → 팔 내리기
-      if (U && U.toast) U.toast('외부 아바타를 불러왔어요.', 'ok');
+      const b = humanBones(model); world.bones = b; if (b.lArm) b.lArm.rotation.z = -1.15; if (b.rArm) b.rArm.rotation.z = 1.15; // T포즈 → 팔 내리기
+      if (U && U.toast) U.toast('외부 치료사 아바타를 불러왔어요.', 'ok');
     }).catch(e => { if (U && U.toast) U.toast('외부 아바타 로드 실패: ' + e.message + ' (내장 캐릭터 사용)', 'err'); });
   }
   function setPlayer() { if (built) buildAvatar(); }
@@ -182,6 +206,7 @@ window.Hospital3D = (() => {
     // 환자
     room.patient = buildPatient(info, bx, bz, topY, type); room.patient.traverse(o => { if (o.isMesh) { o.userData.room = i; world.clickables.push(o); } }); G.add(room.patient);
     room.pose = room.patient.userData.pose; room.focus = room.pose === 'sitting' ? { x: bx + .36, z: bz + .1 } : { x: bx, z: bz - .3 };
+    if (info.status !== 'empty') applyPatientGlb(room, info, bx, bz, topY, type);
     room.ring = new THREE.Mesh(new THREE.TorusGeometry(.13, .02, 10, 28), mat('#DC2626', { emissive: '#DC2626', emissiveIntensity: .9 })); room.ring.rotation.x = Math.PI / 2; room.ring.visible = false; G.add(room.ring);
     room.lamp = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 10), mat('#EF4444', { emissive: '#EF4444', emissiveIntensity: 1 })); room.lamp.position.set(bx - .7, 2.4, -ROOM_D + .12); G.add(room.lamp);
     room.chart = sprite([{ text: '' }], { w: 1.2, depthTest: false }); room.chart.position.set(bx + .2, 2.05, -ROOM_D + .25); room.chart.renderOrder = 10; G.add(room.chart);
@@ -288,7 +313,7 @@ window.Hospital3D = (() => {
       window.addEventListener('keydown', onKeyDown); window.addEventListener('keyup', onKeyUp);
       makeOverlay(); lastTs = performance.now(); raf = requestAnimationFrame(loop);
       watchdog = setInterval(() => { if (running && performance.now() - lastTs > 60) tick(performance.now()); }, 40);
-    }).catch(e => { running = false; if (U && U.toast) U.toast('3D 엔진을 불러오지 못했어요: ' + e.message, 'err'); if (opts.onFail) opts.onFail(); });
+    }).catch(e => { running = false; console.error('[Hospital3D] mount 실패', e); window.__h3dError = e && (e.stack || e.message); if (U && U.toast) U.toast('3D 엔진을 불러오지 못했어요: ' + e.message, 'err'); if (opts.onFail) opts.onFail(); });
   }
   function destroy() {
     running = false; if (raf) cancelAnimationFrame(raf); clearInterval(watchdog); keys.clear();
@@ -416,7 +441,7 @@ window.Hospital3D = (() => {
         const m = /^(.*?)\s*\((.*)\)$/.exec(info.label || ''); const nm = m ? m[1] : (info.label || ''); const as = m ? m[2].replace(',', ' ·') : '';
         room.label.material.map.dispose(); room.label.material.map = plateTexture(floor, i, { name: empty ? '—' : nm, ageSex: as, state: done ? '치료 완료 ✓' : empty ? '빈 병실' : nxt ? '▶ 지금 과제' : '순서 대기', stateColor: done ? '#15803D' : nxt ? '#B45309' : '#6B7280' }, meta); room.label.material.needsUpdate = true;
         room.chart.material.map.dispose(); room.chart.material.map = textTexture([{ text: info.label || '' }, { text: done ? '치료 완료' : nxt ? '평가 대기 · 환자를 클릭' : '순서 대기', color: done ? '#15803D' : '#B45309' }], { bg: 'rgba(255,255,255,.92)' }); room.chart.material.needsUpdate = true;
-        if (room.blanket) room.blanket.material.color.set(done ? '#BBF7D0' : (info.pediatric ? '#FFF1C9' : '#FFFFFF')); room.lamp.visible = !done && !empty; room.patient.visible = !empty; room.chart.visible = !empty; if (room.marker) room.marker.visible = nxt; room.label.material.emissive = new THREE.Color(nxt ? '#8B5CF6' : '#000000'); room.label.material.emissiveIntensity = nxt ? .18 : 0;
+        if (room.blanket) room.blanket.material.color.set(done ? '#BBF7D0' : (info.pediatric ? '#FFF1C9' : '#FFFFFF')); room.lamp.visible = !done && !empty; room.patient.visible = !empty && !room.glb; if (room.glb) room.glb.visible = !empty; room.chart.visible = !empty; if (room.marker) room.marker.visible = nxt; room.label.material.emissive = new THREE.Color(nxt ? '#8B5CF6' : '#000000'); room.label.material.emissiveIntensity = nxt ? .18 : 0;
         // 환부 고리 위치
         const cs = Session && Session.state && Session.state.rooms[floor] && Session.state.rooms[floor][i]; const reg = cs && cs.case && cs.case.patient && cs.case.patient.region;
         if (reg && !empty && room.pose !== 'sitting' && window.Patient) { const pt = Patient.point(reg, cs.case.patient.posture || 'supine', info.pediatric ? .74 : 1); const z = -3.72 + (pt.x - 60) / 256 * 1.67; const x = -(pt.y - 100) / 44 * .36; room.ring.position.set(room.bedCenter.x + x, (room.topY || .6) + .18, Math.max(room.bedCenter.z - .95, Math.min(room.bedCenter.z + .95, z + (room.bedCenter.z + 3.0)))); room.ring.visible = !done; } else room.ring.visible = false;

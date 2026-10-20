@@ -10,11 +10,11 @@ const config = Object.assign({ port: 8787, adminPin: '1234', geminiApiKey: '', g
 const file = n => path.join(DATA, n);
 const readJson = (n, d) => { try { return JSON.parse(fs.readFileSync(file(n), 'utf8')); } catch (e) { return d; } };
 const writeJson = (n, v) => fs.writeFileSync(file(n), JSON.stringify(v, null, 1), 'utf8');
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
+const MIME = { '.glb': 'model/gltf-binary', '.gltf': 'model/gltf+json', '.bin': 'application/octet-stream', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.webmanifest': 'application/manifest+json', '.ico': 'image/x-icon', '.woff2': 'font/woff2' };
 const send = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(obj)); };
 const body = req => new Promise((resolve, reject) => { let b = ''; req.on('data', c => { b += c; if (b.length > 2e6) req.destroy(); }); req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { reject(new Error('잘못된 JSON')); } }); });
 const isAdmin = (req, url) => (req.headers['x-admin-pin'] || url.searchParams.get('pin')) === String(config.adminPin);
-const publicSettings = () => ({ questionTarget: config.questionTarget, questionsPerStep: config.questionsPerStep, passScore: config.passScore, schoolName: config.schoolName, appName: config.appName, avatarGlbF: config.avatarGlbF || '', avatarGlbM: config.avatarGlbM || '' });
+const publicSettings = () => ({ questionTarget: config.questionTarget, questionsPerStep: config.questionsPerStep, passScore: config.passScore, schoolName: config.schoolName, appName: config.appName, avatarGlbF: config.avatarGlbF || '', avatarGlbM: config.avatarGlbM || '', patientGlbF: config.patientGlbF || '', patientGlbM: config.patientGlbM || '', patientGlbChild: config.patientGlbChild || '', patientGlbElderF: config.patientGlbElderF || '', patientGlbElderM: config.patientGlbElderM || '' });
 const csvEsc = v => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
 const fmt = d => { const x = new Date(d); const p = n => String(n).padStart(2, '0'); return `${x.getFullYear()}-${p(x.getMonth() + 1)}-${p(x.getDate())} ${p(x.getHours())}:${p(x.getMinutes())}`; };
 function appendCsv(r) {
@@ -72,9 +72,14 @@ async function api(req, res, url) {
   if (p === '/users' && m === 'GET') return send(res, 200, { users: readJson('users.json', []).map(({ pinHash, ...u }) => u) });
   if (p === '/users/status' && m === 'POST') { const b = await body(req); const users = readJson('users.json', []); const u = users.find(u => u.id === b.id); if (!u) return send(res, 404, { error: '없음' }); u.status = b.status; if (b.status === 'approved') u.approvedAt = Date.now(); writeJson('users.json', users); return send(res, 200, { ok: true }); }
   if (p === '/users/delete' && m === 'POST') { const b = await body(req); writeJson('users.json', readJson('users.json', []).filter(u => u.id !== b.id)); return send(res, 200, { ok: true }); }
-  if (p === '/settings' && m === 'POST') { const b = await body(req); ['questionTarget', 'questionsPerStep', 'passScore', 'schoolName', 'appName', 'geminiModel', 'aiMode', 'avatarGlbF', 'avatarGlbM'].forEach(k => { if (b[k] != null && b[k] !== '') config[k] = b[k]; }); fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8'); return send(res, 200, { ok: true }); }
+  if (p === '/settings' && m === 'POST') { const b = await body(req); ['questionTarget', 'questionsPerStep', 'passScore', 'schoolName', 'appName', 'geminiModel', 'aiMode', 'avatarGlbF', 'avatarGlbM', 'patientGlbF', 'patientGlbM', 'patientGlbChild', 'patientGlbElderF', 'patientGlbElderM'].forEach(k => { if (b[k] != null && b[k] !== '') config[k] = b[k]; }); fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8'); return send(res, 200, { ok: true }); }
   if (p === '/admin/pin' && m === 'POST') { const b = await body(req); if (!/^\d{4,8}$/.test(String(b.pin))) return send(res, 400, { error: 'PIN 형식' }); config.adminPin = String(b.pin); fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), 'utf8'); return send(res, 200, { ok: true }); }
-  if (p === '/results.csv' && m === 'GET') { const f = file('results.csv'); if (!fs.existsSync(f)) return send(res, 404, { error: '결과 없음' }); res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="results.csv"' }); return fs.createReadStream(f).pipe(res); }
+  if (p === '/asset' && m === 'PUT') { // 3D 모델(GLB) 업로드 → app/assets/models/
+    const name = String(url.searchParams.get('name') || '').replace(/[^A-Za-z0-9_.-]/g, '_'); if (!/\.(glb|gltf|png|jpg|jpeg)$/i.test(name)) return send(res, 400, { error: 'glb/gltf/png/jpg 파일만 업로드할 수 있습니다.' });
+    const dir = path.join(ROOT, 'assets', 'models'); fs.mkdirSync(dir, { recursive: true }); const out = fs.createWriteStream(path.join(dir, name)); let size = 0;
+    req.on('data', c => { size += c.length; if (size > 80 * 1024 * 1024) { req.destroy(); } }); req.pipe(out);
+    out.on('finish', () => send(res, 200, { ok: true, path: 'assets/models/' + name, size })); out.on('error', e => send(res, 500, { error: e.message })); return;
+  }  if (p === '/results.csv' && m === 'GET') { const f = file('results.csv'); if (!fs.existsSync(f)) return send(res, 404, { error: '결과 없음' }); res.writeHead(200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="results.csv"' }); return fs.createReadStream(f).pipe(res); }
   return send(res, 404, { error: 'not found' });
 }
 function serveStatic(req, res, url) {

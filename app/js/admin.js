@@ -106,6 +106,9 @@ window.Admin = (() => {
       h('h3', { class: 'mt' }, '🧑‍⚕️ 치료사 3D 아바타(선택)'),
       h('p', { class: 'muted small' }, 'Genspark·Ready Player Me·Meshy 등에서 만든 사람 모델(GLB, 1.7 m 안팎, +z 정면)의 공개 URL을 넣으면 내장 캐릭터 대신 그 모델이 병원을 걸어 다닙니다. Mixamo 뼈 이름(LeftUpLeg 등)이 있으면 걷기 동작도 붙습니다. 비우면 내장 스크럽 캐릭터를 씁니다. 정적 배포에서 모든 학생에게 적용하려면 app/js/config.js 의 avatarGlbF / avatarGlbM 에 넣으세요.'),
       field('avatarGlbF', '여자 치료사 GLB URL'), field('avatarGlbM', '남자 치료사 GLB URL'),
+      h('h3', { class: 'mt' }, '🛏️ 환자 3D 모델(선택)'),
+      h('p', { class: 'muted small' }, '환자도 GLB로 교체할 수 있습니다. 저장소의 app/assets/models/ 에 파일을 넣고 상대 경로(예: assets/models/patient_f.glb)를 적거나 공개 URL을 넣으세요. Mixamo 리깅(Hips·LeftUpLeg 등)이 있으면 누움·엎드림·앉음 자세를 자동으로 잡고, 리깅이 없으면 누운 자세로만 눕힙니다. 자세한 제작 절차는 app/assets/models/README.md 를 보세요.'),
+      field('patientGlbF', '성인 여자 환자 GLB'), field('patientGlbM', '성인 남자 환자 GLB'), field('patientGlbChild', '소아 환자 GLB'), field('patientGlbElderF', '노인 여자 환자 GLB (비우면 성인 여자 사용)'), field('patientGlbElderM', '노인 남자 환자 GLB (비우면 성인 남자 사용)'),
       h('h3', { class: 'mt' }, '🔐 관리자 PIN 변경'),
       h('div', { class: 'row' }, f.newPin = h('input', { class: 'input', type: 'password', placeholder: '새 PIN (숫자 4~8자리)', maxlength: '8' }), h('button', { class: 'btn ghost', onClick: async () => { const v = f.newPin.value.trim(); if (!/^\d{4,8}$/.test(v)) return toast('숫자 4~8자리로 입력하세요', 'err'); try { await Store.adminChangePin(v); toast('PIN 변경 완료', 'ok'); } catch (e) { toast(e.message, 'err'); } } }, '변경'))));
   }

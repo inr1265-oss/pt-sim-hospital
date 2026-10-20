@@ -5,7 +5,7 @@ window.Store = (() => {
     set(k, v) { try { localStorage.setItem('pt:' + k, JSON.stringify(v)); } catch (e) { console.warn('localStorage', e); } },
     del(k) { try { localStorage.removeItem('pt:' + k); } catch (e) { /* ignore */ } }
   };
-  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, avatarGlbF: '', avatarGlbM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
   const PUB = () => window.PT_CONFIG || {};
   const S = { remote: false, geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null };
 
@@ -139,6 +139,13 @@ window.Store = (() => {
     return parts ? parts.map(p => p.text || '').join('') : '';
   };
 
+  // ---- 3D 모델 파일 업로드(서버 모드): app/assets/models/ 에 저장 ----
+  S.uploadAsset = async function (file, name) {
+    if (!S.remote) throw new Error('서버 모드에서만 업로드할 수 있습니다. 정적 배포에서는 app/assets/models/ 폴더에 파일을 넣고 경로를 입력하세요.');
+    const headers = { 'Content-Type': 'application/octet-stream' }; if (S.adminPin) headers['x-admin-pin'] = S.adminPin;
+    const res = await fetch('/api/asset?name=' + encodeURIComponent(name), { method: 'PUT', headers, body: file });
+    const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || ('업로드 실패 ' + res.status)); return data.path;
+  };
   S.exportAll = () => ({ users: LS.get('users', []), results: LS.get('results', []), settings: S.settings, customCases: LS.get('customCases', []), mastered: LS.get('mastered', []) });
   return S;
 })();
