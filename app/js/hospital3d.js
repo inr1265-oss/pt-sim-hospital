@@ -129,7 +129,7 @@ window.Hospital3D = (() => {
     if (!isFinite(minY) || maxY - minY < .05) { const bb = new THREE.Box3().setFromObject(model); minY = bb.min.y; maxY = bb.max.y; }
     const h = (maxY - minY) || 1; const k = target / h; model.scale.setScalar(k); model.position.y = -minY * k; model.updateMatrixWorld(true); return k;
   }
-  const patientGlbUrls = info => { const u = (typeof opts.patientGlb === 'function' ? opts.patientGlb() : opts.patientGlb) || {}; const elderly = !info.pediatric && Number(info.age) >= 60; const cdn = info.sex === '남' ? CDN_GLB.M : CDN_GLB.F; const list = info.pediatric ? [u.child] : elderly ? (info.sex === '남' ? [u.elderM, u.M, cdn] : [u.elderF, u.F, cdn]) : (info.sex === '남' ? [u.M, cdn] : [u.F, cdn]); return [...new Set(list.filter(Boolean))]; }; // 앞의 파일이 없으면 다음 후보로
+  const patientGlbUrls = info => { const u = (typeof opts.patientGlb === 'function' ? opts.patientGlb() : opts.patientGlb) || {}; const elderly = !info.pediatric && Number(info.age) >= 60; const list = info.pediatric ? [u.child] : elderly ? (info.sex === '남' ? [u.elderM, u.M] : [u.elderF, u.F]) : (info.sex === '남' ? [u.M] : [u.F]); /* 환자는 공개 기본 모델을 쓰지 않음(할머니·할아버지·아이를 표현 못 함) → 파일이 없으면 내장 환자 */ return [...new Set(list.filter(Boolean))]; }; // 앞의 파일이 없으면 다음 후보로
   const patientGlbUrl = info => patientGlbUrls(info)[0] || '';
   // 기본 사람 모델(리깅된 공개 GLB, three.js 예제 저장소·jsDelivr): 저장소 assets/models 에 파일이 없을 때 마지막 후보
   const CDN_GLB = { F: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/models/gltf/Michelle.glb', M: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/models/gltf/readyplayer.me.glb' };
@@ -229,7 +229,7 @@ window.Hospital3D = (() => {
       // 트인 치료 베이: 앞벽 없음, 허리 높이 파티션 + 커튼 레일, 치료 테이블
       box(.1, 1.2, ROOM_D - .6, '#E6EEF5', a + .3, .6, -ROOM_D / 2, { roughness: .6 }, true); box(.1, 1.2, ROOM_D - .6, '#E6EEF5', b - .3, .6, -ROOM_D / 2, { roughness: .6 }, true);
       const rail = new THREE.Mesh(new THREE.TorusGeometry(1.9, .02, 8, 40, Math.PI), mat('#9CA3AF', { metalness: .7 })); rail.rotation.x = Math.PI / 2; rail.rotation.z = 0; rail.position.set(bx, 2.3, bz); G.add(rail);
-      const curtain = box(.04, 2.0, 2.2, '#CFE9DD', bx - 1.9, 1.3, bz, { roughness: 1, transparent: true, opacity: .85 }); curtain.castShadow = false;
+      const curtain = box(.04, 2.0, 2.2, '#CFE9DD', bx - 1.9, 1.3, bz, { roughness: 1, transparent: true, opacity: .85 }); curtain.castShadow = false; world.walls.push(curtain); // 카메라가 커튼 뒤로 가지 않게
       buildPlinth(room, bx, bz, .75, meta, i); topY = .75;
       box(.6, .9, .5, '#E5E7EB', bx + 1.9, .45, bz + 1.4, { metalness: .2 }, true); box(.5, .3, .05, '#0F172A', bx + 1.9, 1.05, bz + 1.15, { emissive: '#34D399', emissiveIntensity: .6 });
       room.plateX = b - .9; room.label = plate(i, meta, b - .9, 1.35, .5, true); room.stand = { x: cx, z: -1.7 };
@@ -296,15 +296,22 @@ window.Hospital3D = (() => {
   function buildPatient(info, bx, bz, topY, type) {
     const ped = !!info.pediatric, female = info.sex === '여', age = Number(info.age) || 30, elderly = !ped && age >= 60; const pose = posture(info);
     const s = ped ? (age < 2 ? .6 : .78) : 1; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .3 : .36);
-    const skin = mat('#F6D3B5'); const hairM = mat(ped ? (female ? '#6B3F2A' : '#4A3024') : elderly ? '#A7ADB5' : female ? '#3B2418' : '#2B1B12');
-    const gown = new THREE.MeshStandardMaterial({ map: patternTexture(ped ? (female ? '#FFD9E7' : '#D6E8FF') : (female ? '#F6DCE4' : '#DCEAF2'), ped ? (female ? '#F472B6' : '#60A5FA') : (female ? '#C47A95' : '#7E9BB5'), 'dots'), roughness: .9 }); const pants = mat(ped ? (female ? '#F9A8D4' : '#93C5FD') : '#6B7B94');
+    const skin = mat('#F6D3B5'); const hairM = mat(ped ? (female ? '#6B3F2A' : '#4A3024') : elderly ? '#CBD0D8' : female ? '#3B2418' : '#2B1B12');
+    const gown = new THREE.MeshStandardMaterial({ map: patternTexture(ped ? (female ? '#FFD9E7' : '#D6E8FF') : elderly ? (female ? '#EADFF5' : '#E3EAF0') : (female ? '#F6DCE4' : '#DCEAF2'), ped ? (female ? '#F472B6' : '#60A5FA') : elderly ? (female ? '#B79BD8' : '#93A7BA') : (female ? '#C47A95' : '#7E9BB5'), 'dots'), roughness: .9 }); const pants = mat(ped ? (female ? '#F9A8D4' : '#93C5FD') : '#6B7B94');
     const g = new THREE.Group(); g.userData.pose = pose;
     const add = (geo, m, x, y, z, rx, ry, rz) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); if (rx) o.rotation.x = rx; if (ry) o.rotation.y = ry; if (rz) o.rotation.z = rz; o.castShadow = true; g.add(o); return o; };
     const headR = ped ? .2 : .17;
     const makeHead = (x, y, z, faceDir) => {
       add(new THREE.SphereGeometry(headR, 22, 18), skin, x, y, z);
-      const cap = add(new THREE.SphereGeometry(headR + .012, 22, 18, 0, Math.PI * 2, 0, Math.PI / 2), hairM, x, y, z);
-      if (faceDir === 'up') { cap.rotation.x = -1.15; } else if (faceDir === 'down') { cap.rotation.x = 1.0; } else { cap.rotation.z = -.35; cap.rotation.x = -.25; }
+      const upAx = faceDir === 'front' ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(0, 0, -1);
+      if (elderly && !female) { // 할아버지: 정수리가 벗어진 흰머리 띠
+        add(new THREE.TorusGeometry(headR * .92, .045, 8, 24), hairM, x + upAx.x * headR * .2, y + upAx.y * headR * .2, z + upAx.z * headR * .2, faceDir === 'front' ? Math.PI / 2 : 0);
+      } else {
+        const cap = add(new THREE.SphereGeometry(headR + .012, 22, 18, 0, Math.PI * 2, 0, Math.PI / 2), hairM, x, y, z);
+        if (faceDir === 'up') { cap.rotation.x = -1.15; } else if (faceDir === 'down') { cap.rotation.x = 1.0; } else { cap.rotation.z = -.35; cap.rotation.x = -.25; }
+      }
+      if (elderly && female) { const bun = faceDir === 'front' ? [x - headR * .95, y + headR * .25, z] : faceDir === 'up' ? [x, y + headR * .15, z - headR * 1.05] : [x, y + headR * .95, z]; add(new THREE.SphereGeometry(.075, 12, 10), hairM, bun[0], bun[1], bun[2]); } // 할머니: 쪽진 머리
+      if (faceDir !== 'down') { const mp = faceDir === 'front' ? [x + headR * .96, y - .05, z] : [x, y + headR * .96, z + .07]; const mo = add(new THREE.SphereGeometry(.022, 10, 8), mat('#C9736E'), mp[0], mp[1], mp[2]); mo.scale.set(faceDir === 'front' ? .5 : 1.4, .5, faceDir === 'front' ? 1.4 : .5); } // 입
       if (female && !ped) { const lg = add(new THREE.SphereGeometry(headR * 1.15, 16, 12), hairM, x - (faceDir === 'front' ? .07 : 0), y - (faceDir === 'front' ? .05 : .08), z - (faceDir === 'up' ? .1 : 0)); lg.scale.set(faceDir === 'front' ? .9 : 1.3, faceDir === 'front' ? 1.3 : .5, 1.2); }
       if (female && ped) { [-1, 1].forEach(sg => add(new THREE.SphereGeometry(.07, 10, 8), hairM, x + (faceDir === 'front' ? 0 : sg * (headR + .03)), y + .02, z + (faceDir === 'front' ? sg * (headR + .03) : 0))); }
       if (faceDir !== 'down') { const ex = faceDir === 'front' ? x + headR * .92 : x; [-1, 1].forEach(sg => add(new THREE.SphereGeometry(.018, 8, 8), mat('#222'), faceDir === 'front' ? ex : x + sg * .06, faceDir === 'front' ? y + .02 : y + headR * .9, faceDir === 'front' ? z + sg * .06 : z + .03)); }
@@ -330,7 +337,7 @@ window.Hospital3D = (() => {
     } else {
       g.position.set(bx, topY + .02, bz); g.scale.set(s, s, s);
       makeHead(0, .14, -.72, 'up');
-      add(new THREE.CylinderGeometry(.21, .23, .6, 18), gown, 0, .1, -.3, Math.PI / 2);
+      add(new THREE.CylinderGeometry(.21, .23, .6, 18), gown, 0, .1, -.3, Math.PI / 2); [-.11, .11].forEach(dx => { add(new THREE.CylinderGeometry(.09, .07, .85, 12), pants, dx, .08, .45, Math.PI / 2); add(new THREE.BoxGeometry(.1, .16, .09), skin, dx, .12, .9); }); add(new THREE.BoxGeometry(.86, .13, .98), mat('#CFE3F6', { roughness: .95 }), 0, .1, .52); // 다리·발·이불(허리 아래)
       [-.28, .28].forEach(dx => { add(new THREE.CylinderGeometry(.055, .05, .55, 10), skin, dx, .08, -.2, Math.PI / 2); add(new THREE.SphereGeometry(.06, 10, 8), skin, dx, .08, .1); });
       if (ped) [-.1, .1].forEach(dx => add(new THREE.SphereGeometry(.06, 10, 8), skin, dx, .1, .82));
     }
@@ -518,9 +525,10 @@ window.Hospital3D = (() => {
     // 평가·중재 중: 침대 옆 클로즈업(차트 패널이 열려 있는 동안)
     if (P.focus != null && world.rooms[P.focus]) {
       const r = world.rooms[P.focus]; const b = r.bedCenter;
-      if (r.pose === 'sitting') { wantPos = new THREE.Vector3(b.x + 1.45, 1.45, b.z + 1.0); wantTgt = new THREE.Vector3(b.x + .36, 1.0, b.z + .1); } else { wantPos = new THREE.Vector3(b.x - 1.3, 1.55, b.z + .6); wantTgt = new THREE.Vector3(b.x + .1, .72, b.z - .35); }
+      if (r.pose === 'sitting') { wantPos = new THREE.Vector3(b.x + 1.75, 1.6, b.z + 1.2); wantTgt = new THREE.Vector3(b.x + .36, 1.05, b.z + .1); } else { wantPos = new THREE.Vector3(b.x - 1.4, 1.85, b.z + .15); wantTgt = new THREE.Vector3(b.x + .05, .8, b.z - .4); } // 머리맡 옆에서 얼굴이 보이게
       // 차트 패널이 오른쪽을 덮으므로 환자가 화면 왼쪽에 오도록 시선을 오른쪽으로 옮김
       const dirF = wantTgt.clone().sub(wantPos).normalize(); const right = new THREE.Vector3().crossVectors(dirF, new THREE.Vector3(0, 1, 0)).normalize(); const wide = (canvas && canvas.clientWidth > 760) ? .75 : .15; wantTgt.add(right.multiplyScalar(wide));
+      if (world.walls.length) { const cr3 = world.camRc2 || (world.camRc2 = new THREE.Raycaster()); const dv = wantPos.clone().sub(wantTgt); const L = dv.length(); dv.normalize(); cr3.set(wantTgt, dv); cr3.far = L; const hit = cr3.intersectObjects(world.walls, false)[0]; if (hit) wantPos.copy(wantTgt).addScaledVector(dv, Math.max(.7, hit.distance - .2)); } // 클로즈업 카메라도 벽·파티션·커튼 안쪽에 머물게
       if (world.avatar) world.avatar.visible = false;
     }
     else if (world.avatar) world.avatar.visible = wantPos.distanceTo(head) > 1.3;
