@@ -274,7 +274,7 @@ body[data-screen="hospital"] .map-help{color:#8B98A8}
 /* 병원 화면에서 차트 패널은 3D 위에 뜨는 유리 패널 */
 body[data-screen="hospital"] .panel{background:rgba(11,18,32,.78);backdrop-filter:blur(16px);border-left:1px solid rgba(255,255,255,.1);box-shadow:-20px 0 60px rgba(0,0,0,.45);width:min(560px,100%)}
 body[data-screen="hospital"] .panel-head{background:transparent;border-bottom:1px solid rgba(255,255,255,.1)}
-body[data-screen="hospital"] .panel-head h2,body[data-screen="hospital"] .panel-head .muted{color:#E6EDF3}
+body[data-screen="hospital"] .panel{color-scheme:dark}body[data-screen="hospital"] .panel-head,body[data-screen="hospital"] .panel-head h2,body[data-screen="hospital"] .panel-head .muted,body[data-screen="hospital"] .panel-head .small{color:#E6EDF3!important}
 body[data-screen="hospital"] .panel-head .icon-btn{background:rgba(255,255,255,.14);color:#fff}
 body[data-screen="hospital"] .room-tag{background:linear-gradient(135deg,#6D5BD0,#8B5CF6);color:#fff}
 body[data-screen="hospital"] .soap-tabs{background:transparent}
