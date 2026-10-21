@@ -190,7 +190,9 @@ window.Hospital3D = (() => {
     }).catch(e => { if (e.silent) return; if (!glbWarned && U && U.toast) { glbWarned = true; U.toast('환자 모델 로드 실패: ' + e.message + ' (내장 환자 사용)', 'err'); } });
   }
   function loadGlbAvatar(urls, g, female) {
-    const list = Array.isArray(urls) ? urls : [urls]; const tryLoad = k => loadGlb(list[k]).catch(e => { if (e.silent && k + 1 < list.length) return tryLoad(k + 1); throw e; });
+    const list = (Array.isArray(urls) ? urls : [urls]).filter(Boolean); if (!list.length) return; const tryLoad = k => loadGlb(list[k]).catch(e => { if (e.silent && k + 1 < list.length) return tryLoad(k + 1); throw e; });
+    // GLB가 준비될 때까지 내장 캐릭터는 숨김(처음 들어간 층에서 다른 모습이 잠깐 보였다 바뀌는 현상 방지). 로드 실패 시 다시 표시
+    const procedural = g.children.filter(ch => ch !== world.nameTag); procedural.forEach(ch => { ch.visible = false; });
     tryLoad(0).then(gltf => {
       if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.58); if (world.nameTag) world.nameTag.position.y = 1.9; if (facesPlusZ(model, humanBones(model))) model.rotation.y = Math.PI; world.glbModel = model; /* 병원 규모에 맞게 조금 작게 · +z를 보는 모델은 돌려서 -z(진행 방향)를 보게 */
       dressModel(model, 'therapist'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
@@ -199,7 +201,7 @@ window.Hospital3D = (() => {
       // GLB에 걷기/서기 애니메이션 클립이 있으면(Mixamo 등) 뼈 흔들기 대신 그 클립을 재생
       const clips = gltf.animations || []; const walkClip = clips.find(c => /walk/i.test(c.name)) || clips.find(c => /run/i.test(c.name)); const idleClip = clips.find(c => /idle|breath|stand/i.test(c.name));
       if (walkClip || idleClip) { const mixer = new THREE.AnimationMixer(model); world.mixer = mixer; world.anim = { walk: walkClip ? mixer.clipAction(walkClip) : null, idle: idleClip ? mixer.clipAction(idleClip) : null, cur: null, checked: false }; }
-    }).catch(e => { if (e.silent) return; if (U && U.toast) U.toast('외부 아바타 로드 실패: ' + e.message + ' (내장 캐릭터 사용)', 'err'); });
+    }).catch(e => { if (world.avatar === g) procedural.forEach(ch => { ch.visible = true; }); if (e.silent) return; if (U && U.toast) U.toast('외부 아바타 로드 실패: ' + e.message + ' (내장 캐릭터 사용)', 'err'); });
   }
   function setPlayer() { if (built) buildAvatar(); }
   function clearGroup() { if (G) { scene.remove(G); G.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) { (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map && !(m.map.userData && m.map.userData.shared)) m.map.dispose(); m.dispose(); }); } }); } G = new THREE.Group(); scene.add(G); world.rooms = []; world.solids = []; world.clickables = []; world.walls = []; world.labelKey = ''; }
