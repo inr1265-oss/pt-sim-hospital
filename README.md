@@ -158,3 +158,4 @@ PC Chrome/Edge에서는 관리자 콘솔 → 성적 관리에서 **"결과 자�
 - 우선순위: 관리자 설정 → `app/assets/models/` 기본 파일명 → 공개 모델. `app/js/config.js` 의 `publicModels: false` 로 끄면 내장 캐릭터만 씁니다. 여자아이/남자아이 슬롯(`patientGlbChildF/M`)이 추가됐습니다.
 - 엔진: Quaternius 뼈 이름(UpperArmL 등) 인식, 리그가 머리 끝까지 닿지 않는 모델의 키 보정(메시 바운딩 박스 사용), 검게 들어오는 Skin 재질 보정.
 - 출처: Quaternius (https://quaternius.com, CC0) · 배포 CDN: Cinevva 무료 에셋 카탈로그 (https://app.cinevva.com/game-assets/free-3d-character-models)
+- 8개 모델 파일을 `app/assets/models/` 에 기본 파일명으로 **저장소에 포함**했습니다(총 약 14 MB). 외부 CDN 없이도 동작하며, 출처·라이선스는 [app/assets/models/CREDITS.md](app/assets/models/CREDITS.md) 참고.
