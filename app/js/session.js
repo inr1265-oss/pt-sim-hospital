@@ -91,7 +91,7 @@ window.Session = (() => {
         const btn = h('button', { class: 'btn primary small', onClick: send }, '질문');
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
         const mic = U.speechOK() ? h('button', { class: 'btn ghost small mic-btn', title: '음성으로 질문', onClick: e => { const b = e.currentTarget; U.listen(txt => { inp.value = txt; send(); }, on => b.classList.toggle('rec', on)); } }, '🎤') : null;
-        askRow = h('div', {}, h('div', { class: 'ask-row' }, inp, mic, btn), h('div', { class: 'ai-note' }, (aiOn ? '🤖 AI가 환자 역할로 대답합니다. 질문 칩에 없는 내용도 자유롭게 물어보세요.' : '💬 준비된 답변 중 가장 가까운 답을 합니다. 관리자 설정에 Gemini 키를 넣으면 자유 대화가 됩니다.') + (mic ? ' 🎤 버튼을 누르고 말로 질문할 수 있어요.' : '')));
+        askRow = h('div', {}, h('div', { class: 'ask-row' }, inp, mic, btn)); // 안내 문구 없음(사용자 요청)
       }
       U.append(body, h('p', { class: 'guide' }, `💬 ${p.informant ? p.informant + '에게' : '환자에게'} 질문해 보세요. 질문 칩을 누르거나 직접 입력(또는 🎤 말하기)해 문진합니다.`), chat, chips, askRow, nextBtn('다음: 객관적 평가(O) →', 'O'));
       if (inpRef && !room.kbd) { room.kbd = true; try { inpRef.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } // 첫 진입 시 입력창 포커스(폰은 키보드가 올라옴)
