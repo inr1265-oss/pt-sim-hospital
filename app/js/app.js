@@ -176,6 +176,7 @@ window.App = (() => {
     showResult(res);
   }
   function showResult(r) {
+    if (r.mode !== 'practice' && r.pass) { U.chime('pass'); U.confetti({ count: 240, origin: { x: .5, y: .35 } }); U.cheer('🏆 합격!', r.score + '점 · 축하합니다, ' + r.name + ' 치료사님', 3000); }
     show('result'); const el = $('#s-result'); el.innerHTML = ''; const pass = r.pass; const fb = Object.entries(r.byFloor || {});
     const trendCard = r.mode !== 'practice' ? h('div', { class: 'card' }, h('h3', { text: '📈 학습 성공률 변화 추이' }), h('div', { class: 'chart-host muted small' }, '불러오는 중…')) : null;
     if (trendCard) Store.getResults(r.studentId).then(all => { const host = trendCard.querySelector('.chart-host'); host.classList.remove('muted'); PTChart.trend(host, all, r.passScore, r.id); }).catch(() => {});

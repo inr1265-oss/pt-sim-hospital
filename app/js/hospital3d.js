@@ -5,7 +5,7 @@ window.Hospital3D = (() => {
   const ROOM_COLS = [[3, 8], [9, 14], [15, 20], [21, 26], [27, 32]]; // 치료실 x 범위(폭 5 m, 사이 벽 1 m)
   const DOOR_X = ROOM_COLS.map(([a]) => a + 2.5);
   const ROOM_TYPE = ['room', 'bay', 'plinth', 'room', 'bay']; // 침상실 / 트인 치료 베이 / 운동치료 매트 구역
-  const CORR_Z = 5.0, ROOM_D = 6, WALL_H = 3.0, EYE = 1.55, R = 0.3;
+  const CORR_Z = 7.5, ROOM_D = 6, WALL_H = 3.0, EYE = 1.55, R = 0.3;
   const FLOOR_META = {
     1: { name: '임상의사결정 문진실', color: '#E3F3EA', accent: '#0F7A4D', deep: '#0B5E3B', wall: '#EEF6F1', tile: ['#E2EBE5', '#EAF1EC'] },
     2: { name: '운동치료실', color: '#E1EEFF', accent: '#2563EB', deep: '#1E40AF', wall: '#EEF4FC', tile: ['#E0E8F3', '#E9EFF7'] },
@@ -61,7 +61,7 @@ window.Hospital3D = (() => {
 
   // ---------- 장면 ----------
   function buildScene() {
-    scene = new THREE.Scene(); scene.background = new THREE.Color('#DCE4EC'); scene.fog = new THREE.Fog('#DCE4EC', 16, 34);
+    scene = new THREE.Scene(); scene.background = new THREE.Color('#DCE4EC'); scene.fog = new THREE.Fog('#DCE4EC', 20, 42);
     camera = new THREE.PerspectiveCamera(66, W / H, .05, 60);
     scene.add(new THREE.HemisphereLight('#fff4e4', '#8e9aab', .8)); scene.add(new THREE.AmbientLight('#ffffff', .22));
     const dir = new THREE.DirectionalLight('#ffe7c4', .85); dir.position.set(COLS / 2 + 6, 12, 9); dir.target.position.set(COLS / 2, 0, -1); scene.add(dir.target);

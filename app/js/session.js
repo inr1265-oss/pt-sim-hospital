@@ -59,6 +59,7 @@ window.Session = (() => {
       h('button', { class: 'icon-btn', 'aria-label': '닫기', onClick: () => { if (!room.done && S.cfg.mode !== 'practice' && unanswered() > 0) { U.confirm('치료를 중단하고 복도로 나갈까요? (진행 상황은 유지되며 다시 들어올 수 있어요)').then(ok => { if (ok) close(); }); } else close(); } }, '✕'));
     U.append(panel, header, patientBox, tabs, body);
     function canGo(s) { return s !== 'P' || allAnswered(qAs); }
+    const celebrate = () => { const mine = S.answers.filter(a => a.caseId === c.id); const ok = mine.filter(a => a.correct).length; const perfect = mine.length > 0 && ok === mine.length; const ctx = { 1: '임상 의사결정 완료', 2: '운동 처방 완료', 3: '아이와 보호자가 고마워해요', 4: '물리적 인자 적용 완료' }[floor] || ''; U.cheer(perfect ? '✨ 완벽해요! 전 문항 정답' : '🎉 환자 치료 완료!', p.name + ' 환자 · 정답 ' + ok + '/' + mine.length + ' · ' + ctx); U.chime(perfect ? 'perfect' : 'done'); U.confetti({ count: perfect ? 220 : 150, origin: { x: .5, y: .4 } }); };
     function renderStep() {
       steps.forEach(s => { tabBtns[s].classList.toggle('active', s === step); });
       tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); tabBtns.O.classList.toggle('done', room.testsDone.size >= c.O.length);
@@ -70,29 +71,30 @@ window.Session = (() => {
     function renderS() {
       const chat = h('div', { class: 'chat' }); const chips = h('div', { class: 'chips' });
       const addBubble = (who, text) => { U.append(chat, h('div', { class: 'bubble-row ' + who }, who === 'pt' ? h('div', { class: 'avatar' }, p.pediatric ? '🧒' : (p.sex === '여' ? '👩' : '👨')) : null, h('div', { class: 'bubble ' + who }, text))); chat.scrollTop = chat.scrollHeight; return chat.lastChild; };
-      addBubble('pt', c.S.chief);
+      addBubble('pt', p.pediatric && p.informant ? '안녕하세요, 선생님. 아이 때문에 왔어요.' : p.pediatric ? '안녕하세요~' : '안녕하세요, 선생님.'); addBubble('pt', c.S.chief);
       c.S.chat.forEach(([q, a], k) => {
         const chip = h('button', { class: 'chip', onClick: () => { chip.disabled = true; addBubble('me', q); setTimeout(() => addBubble('pt', a), 350); room.chatOpened.add(k); tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); } }, q);
         if (room.chatOpened.has(k)) { chip.disabled = true; addBubble('me', q); addBubble('pt', a); }
         U.append(chips, chip);
       });
       (room.aiChat || []).forEach(m => addBubble(m.role === 'me' ? 'me' : 'pt', m.text));
-      let askRow = null;
-      if (Store.geminiAvailable()) {
-        const inp = h('input', { class: 'input', placeholder: `${p.informant ? p.informant + '에게' : '환자에게'} 직접 질문하기 (예: 밤에 더 아픈가요?)`, maxlength: '160' });
+      let askRow = null, inpRef = null; const aiOn = Store.geminiAvailable(); const localReply = t => { const toks = (t.match(/[가-힣A-Za-z0-9]{2,}/g) || []); let best = null, bs = 0; c.S.chat.forEach(([q, a], k) => { const sc = toks.filter(w => (q + a).includes(w)).length; if (sc > bs) { bs = sc; best = [q, a, k]; } }); if (best) { room.chatOpened.add(best[2]); return best[1]; } return '음… 그건 잘 모르겠어요. 다른 걸 물어봐 주세요.'; };
+      {
+        const inp = h('input', { class: 'input', autocomplete: 'off', enterkeyhint: 'send', placeholder: `${p.informant ? p.informant + '에게' : '환자에게'} 직접 질문하기 (예: 밤에 더 아픈가요?)`, maxlength: '160' }); inpRef = inp;
         const send = async () => {
           const t = inp.value.trim(); if (!t) return; inp.value = ''; btn.disabled = true; inp.disabled = true;
           addBubble('me', t); const typing = addBubble('pt', '…'); typing.querySelector('.bubble').classList.add('typing');
-          try { const a = await Gemini.patientReply({ case: c, history: room.aiChat, userQ: t }); typing.remove(); addBubble('pt', a); room.aiChat.push({ role: 'me', text: t }, { role: 'pt', text: a }); room.chatOpened.add('ai' + room.aiChat.length); tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); }
+          try { const a = aiOn ? await Gemini.patientReply({ case: c, history: room.aiChat, userQ: t }) : localReply(t); typing.remove(); addBubble('pt', a); room.aiChat.push({ role: 'me', text: t }, { role: 'pt', text: a }); room.chatOpened.add('ai' + room.aiChat.length); tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); }
           catch (err) { typing.remove(); addBubble('pt', '(AI 환자 응답 실패: ' + err.message + ')'); }
           btn.disabled = false; inp.disabled = false; inp.focus();
         };
         const btn = h('button', { class: 'btn primary small', onClick: send }, '질문');
         inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); send(); } });
         const mic = U.speechOK() ? h('button', { class: 'btn ghost small mic-btn', title: '음성으로 질문', onClick: e => { const b = e.currentTarget; U.listen(txt => { inp.value = txt; send(); }, on => b.classList.toggle('rec', on)); } }, '🎤') : null;
-        askRow = h('div', {}, h('div', { class: 'ask-row' }, inp, mic, btn), h('div', { class: 'ai-note' }, '🤖 AI가 환자 역할로 대답합니다. 질문 칩에 없는 내용도 자유롭게 물어보세요.' + (mic ? ' 🎤 버튼으로 말로 질문할 수 있어요.' : '')));
+        askRow = h('div', {}, h('div', { class: 'ask-row' }, inp, mic, btn), h('div', { class: 'ai-note' }, (aiOn ? '🤖 AI가 환자 역할로 대답합니다. 질문 칩에 없는 내용도 자유롭게 물어보세요.' : '💬 준비된 답변 중 가장 가까운 답을 합니다. 관리자 설정에 Gemini 키를 넣으면 자유 대화가 됩니다.') + (mic ? ' 🎤 버튼을 누르고 말로 질문할 수 있어요.' : '')));
       }
-      U.append(body, h('p', { class: 'guide' }, `💬 ${p.informant ? p.informant + '에게' : '환자에게'} 질문해 보세요. 질문 칩을 누르거나${Store.geminiAvailable() ? ' 직접 입력해' : ''} 문진합니다.`), chat, chips, askRow, nextBtn('다음: 객관적 평가(O) →', 'O'));
+      U.append(body, h('p', { class: 'guide' }, `💬 ${p.informant ? p.informant + '에게' : '환자에게'} 질문해 보세요. 질문 칩을 누르거나 직접 입력(또는 🎤 말하기)해 문진합니다.`), chat, chips, askRow, nextBtn('다음: 객관적 평가(O) →', 'O'));
+      if (inpRef && !room.kbd) { room.kbd = true; try { inpRef.focus({ preventScroll: true }); } catch (e) { /* ignore */ } } // 첫 진입 시 입력창 포커스(폰은 키보드가 올라옴)
     }
     // ---------- O: 검사(목록 + AI 자유 검사 입력) ----------
     function renderO() {
@@ -147,7 +149,7 @@ window.Session = (() => {
       const ok = qPs.length ? qPs.every(x => x.correct) : true;
       U.append(body, h('div', { class: 'plan-box ' + (ok ? 'ok' : 'bad') }, h('b', { text: '치료 계획(P)' }), h('p', { text: c.P.summary }),
         h('div', { class: 'eq-list' }, (c.P.equipment || []).map(id => h('span', { class: 'eq-pill' }, ((PT_EQUIP[id] && PT_EQUIP[id].emoji) || '') + ' ' + ((PT_EQUIP[id] && PT_EQUIP[id].name) || id))))),
-        h('button', { class: 'btn primary block mt', onClick: () => { room.done = true; close(); } }, '치료 완료 → 복도로 나가기'));
+        h('button', { class: 'btn primary block mt', onClick: () => { room.done = true; close(); celebrate(); } }, '치료 완료 → 복도로 나가기'));
     }
     function questionCard(qo, stepName, k, n) {
       const q = qo.q; const card = h('div', { class: 'qcard' }); const num = S.answers.length + 1;
@@ -201,6 +203,7 @@ window.Session = (() => {
       if (qo.q.step === 'P') { const em = qo.q.icons ? (PT_EQUIP[qo.q.icons[orig]] && PT_EQUIP[qo.q.icons[orig]].emoji) : null; pt.clearEquipment(); pt.place(em || (qo.correct ? '✅' : '❌'), qo.correct ? '적절한 중재' : '부적절', qo.correct); }
       const per = isFinite(S.cfg.target) ? (100 / S.cfg.target).toFixed(1) : null;
       toast(qo.correct ? ('정답!' + (per ? ' +' + per + '점' : '')) : '오답입니다. 해설을 확인하세요.', qo.correct ? 'ok' : 'err');
+      if (qo.correct) { U.chime('correct'); U.burst(per ? '+' + per + '점' : '정답!'); U.confetti({ count: 70, scale: .8, origin: { x: .5, y: .5 } }); } else { U.chime('wrong'); }
       if (!qo.correct && navigator.vibrate) { try { navigator.vibrate(80); } catch (e) { /* ignore */ } }
       App.updateHUD(); renderStep();
       // 방금 답한 카드가 보이도록 스크롤
