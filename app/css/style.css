@@ -307,3 +307,10 @@ body.panel-open[data-screen="hospital"]::after{background:rgba(5,10,20,.15)}
 .fx-cheer.go{opacity:1;transform:translate(-50%,-50%) scale(1)}
 .fx-title{font-size:1.7rem;font-weight:900}.fx-sub{margin-top:6px;font-size:.95rem;color:#C7D2E0}
 body[data-screen="hospital"] .panel .chip,body[data-screen="hospital"] .panel .choice,body[data-screen="hospital"] .panel .soap-tab,body[data-screen="hospital"] .panel .test-card button,body[data-screen="hospital"] .panel .btn:not(.primary):not(.ghost){color:var(--ink)}
+/* 터치 조작: 조이스틱·입장 버튼 (pointer:coarse 기기에서만) */
+.vr-stage .map-wrap{touch-action:none}
+.fp-joy{position:absolute;left:18px;bottom:22px;width:112px;height:112px;border-radius:50%;background:rgba(255,255,255,.14);border:2px solid rgba(255,255,255,.4);backdrop-filter:blur(6px);display:none;touch-action:none;z-index:6;user-select:none;-webkit-user-select:none}
+.fp-joy .fp-knob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(255,255,255,.92);box-shadow:0 4px 14px rgba(0,0,0,.3);pointer-events:none}
+.fp-joy.on{background:rgba(255,255,255,.24)}
+.fp-act{position:absolute;right:18px;bottom:30px;width:68px;height:68px;border-radius:50%;border:0;background:linear-gradient(135deg,#0F7A4D,#34C27E);color:#fff;font-weight:800;font-size:.95rem;box-shadow:0 6px 18px rgba(0,0,0,.3);display:none;z-index:6;touch-action:manipulation;user-select:none;-webkit-user-select:none}
+@media (pointer:coarse){.fp-joy,.fp-act{display:block}.dpad{display:none!important}.vr-module{bottom:150px;font-size:.78rem;max-width:64%;left:50%;transform:translateX(-50%)}body[data-screen="hospital"] .vr-tools{left:auto;right:22px;bottom:112px}.fp-hint{bottom:150px}}

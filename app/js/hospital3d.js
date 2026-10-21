@@ -397,6 +397,16 @@ window.Hospital3D = (() => {
     const wrap = canvas.parentElement; if (getComputedStyle(wrap).position === 'static') wrap.style.position = 'relative';
     cross = document.createElement('div'); cross.className = 'fp-cross'; wrap.append(cross);
     hint = document.createElement('div'); hint.className = 'fp-hint'; wrap.append(hint);
+    // 터치 기기용 가상 조이스틱(왼쪽: 이동) + 입장 버튼(오른쪽). 화면 드래그는 시점 회전. CSS 에서 pointer:coarse 일 때만 표시
+    const joy = document.createElement('div'); joy.className = 'fp-joy'; const knob = document.createElement('div'); knob.className = 'fp-knob'; joy.append(knob); wrap.append(joy);
+    let jid = null; const JR = 44;
+    const setFrom = e => { const rc = joy.getBoundingClientRect(); let dx = e.clientX - (rc.left + rc.width / 2), dy = e.clientY - (rc.top + rc.height / 2); const d = Math.hypot(dx, dy); if (d > JR) { dx = dx / d * JR; dy = dy / d * JR; } knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)'; P.axis = { x: dx / JR, y: dy / JR }; };
+    const jend = e => { if (jid == null || (e && e.pointerId !== jid)) return; jid = null; P.axis = null; knob.style.transform = ''; joy.classList.remove('on'); };
+    joy.addEventListener('pointerdown', e => { if (!enabled()) return; jid = e.pointerId; try { joy.setPointerCapture(jid); } catch (x) { } joy.classList.add('on'); setFrom(e); P.wps = []; P.arrive = null; e.preventDefault(); e.stopPropagation(); });
+    joy.addEventListener('pointermove', e => { if (e.pointerId !== jid) return; setFrom(e); e.preventDefault(); });
+    joy.addEventListener('pointerup', jend); joy.addEventListener('pointercancel', jend); joy.addEventListener('lostpointercapture', jend);
+    const act = document.createElement('button'); act.className = 'fp-act'; act.type = 'button'; act.textContent = '입장'; act.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); }); act.addEventListener('click', e => { e.preventDefault(); if (enabled()) { P.lastInteract = 0; interact(); } }); wrap.append(act);
+    canvas.style.touchAction = 'none'; canvas.addEventListener('pointercancel', onUp);
   }
   function resize() {
     if (!renderer || !canvas || !canvas.parentElement) return; const rect = canvas.parentElement.getBoundingClientRect(); if (!rect.width) return;
@@ -474,6 +484,7 @@ window.Hospital3D = (() => {
       if (keys.has('a')) s -= 1; if (keys.has('d')) s += 1;
       if (keys.has('ArrowLeft') || keys.has('q')) turn -= 1; if (keys.has('ArrowRight') || keys.has('e')) turn += 1;
       if (P.impulse) { const im = P.impulse; if (im.dir === 'up') f += 1; if (im.dir === 'down') f -= 1; if (im.dir === 'left') turn -= 1; if (im.dir === 'right') turn += 1; im.t -= dt; if (im.t <= 0) P.impulse = null; }
+      if (P.axis) { f += -P.axis.y; s += P.axis.x; } // 가상 조이스틱
       if (turn) { P.yaw += turn * TURN * dt; P.turnTo = null; }
       if (f || s) {
         const fx = Math.sin(P.yaw), fz = -Math.cos(P.yaw); const rx = Math.cos(P.yaw), rz = Math.sin(P.yaw); const len = Math.hypot(f, s) || 1;
