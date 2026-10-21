@@ -8,8 +8,8 @@
 
 | 파일 | 원본 캐릭터 | 용도 |
 |---|---|---|
-| therapist_f.glb | Casual2_Female | 여자 치료사(긴바지 · 앱이 상·하의를 남색 치료복으로 바꿈) |
-| therapist_m.glb | Casual2_Male | 남자 치료사(긴바지 · 남색 치료복) |
+| therapist_f.glb | Chef_Female | 여자 치료사(코트형 유니폼 · 앱이 남색으로 바꾸고 머리띠는 숨김) |
+| therapist_m.glb | Chef_Male | 남자 치료사(코트형 유니폼 · 남색, 모자 숨김) |
 | patient_f.glb | Casual2_Female | 성인 여자 환자 |
 | patient_m.glb | Casual2_Male | 성인 남자 환자 |
 | patient_elder_f.glb | OldClassy_Female | 할머니 |

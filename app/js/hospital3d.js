@@ -159,7 +159,7 @@ window.Hospital3D = (() => {
       if (/^Skin$/i.test(mn) && o.material.color) { // Quaternius 류: 피부 재질이 검게 들어오는 경우 → 정점색이 있으면 그것을, 없으면 살색
         const c = o.material.color; if (c.r + c.g + c.b < .3) { const m = o.material.clone(); if (o.geometry && o.geometry.attributes && o.geometry.attributes.color) { m.vertexColors = true; m.color.set('#ffffff'); } else { m.color.set('#F1C8A5'); } m.needsUpdate = true; o.material = m; }
       }
-      if (/^(Hat|Headwear)$/i.test(mn)) { o.visible = false; return; } // 모자(안전모·중절모)는 병원에 안 맞으므로 숨김
+      if (/^(Hat|Headwear|Band)$/i.test(mn)) { o.visible = false; return; } // 모자·머리띠는 병원에 안 맞으므로 숨김
       if (/^(Shirt|Pants|Belt|Jacket|Vest|Skirt|Dress|Shoes|Black|Details|Clothes|DarkClothes)$/i.test(mn)) { // Quaternius 류: 재질 이름으로 옷 구분 → 치료사는 남색, 환자는 연한 환자복
         const m = o.material.clone(); m.color = new THREE.Color(/Shirt|Jacket|Vest|Dress|Clothes$/i.test(mn) && !/Dark/i.test(mn) ? top : /Shoes/i.test(mn) ? '#F3F4F6' : /Belt|Details/i.test(mn) ? (kind === 'therapist' ? '#0F1D33' : '#7B8FA3') : bottom); m.needsUpdate = true; o.material = m; return;
       }
