@@ -159,3 +159,7 @@ PC Chrome/Edge에서는 관리자 콘솔 → 성적 관리에서 **"결과 자�
 - 엔진: Quaternius 뼈 이름(UpperArmL 등) 인식, 리그가 머리 끝까지 닿지 않는 모델의 키 보정(메시 바운딩 박스 사용), 검게 들어오는 Skin 재질 보정.
 - 출처: Quaternius (https://quaternius.com, CC0) · 배포 CDN: Cinevva 무료 에셋 카탈로그 (https://app.cinevva.com/game-assets/free-3d-character-models)
 - 8개 모델 파일을 `app/assets/models/` 에 기본 파일명으로 **저장소에 포함**했습니다(총 약 14 MB). 외부 CDN 없이도 동작하며, 출처·라이선스는 [app/assets/models/CREDITS.md](app/assets/models/CREDITS.md) 참고.
+
+## 2026-10-21 업데이트 12: 모델 크기 축소·카메라 거리·남색 긴바지 치료복
+- 사람 모델 키를 병원 규모에 맞게 줄였습니다(치료사 1.58 m, 성인 환자 1.58 m, 노인 1.5 m, 아동 1.05 m, 영아 0.72 m). 어깨너머 카메라도 조금 더 뒤·위로(복도 3.9 m, 치료실 2.1 m).
+- 치료사 모델을 반바지(Casual)에서 긴바지(Casual2)로 바꾸고 상·하의를 남색 계열로 입힙니다. 환자는 연한 하늘색 상의·회청색 하의의 환자복 톤으로 통일하고, 모자(안전모·중절모)는 숨깁니다.

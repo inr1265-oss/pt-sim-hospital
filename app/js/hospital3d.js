@@ -144,7 +144,7 @@ window.Hospital3D = (() => {
   const publicOn = () => opts.publicModels !== false;
   // 옷 입히기: Ready Player Me 계열(Wolf3D_*) 메시는 상의·하의를 단색으로 바꿔 치료복/환자복처럼, 모자는 숨김
   function dressModel(model, kind) {
-    const top = kind === 'therapist' ? '#2E9C8B' : '#BFD7EA', bottom = kind === 'therapist' ? '#227B6E' : '#BFD7EA';
+    const top = kind === 'therapist' ? '#0F2546' : '#C9DDEF', bottom = kind === 'therapist' ? '#0B1B33' : '#8EA6BE'; // 치료사: 남색 상·하의 / 환자: 연한 환자복
     model.traverse(o => {
       if (!o.isMesh) return; const nm = o.name || '';
       if (/Headwear|Glasses/i.test(nm)) { o.visible = false; return; }
@@ -159,8 +159,9 @@ window.Hospital3D = (() => {
       if (/^Skin$/i.test(mn) && o.material.color) { // Quaternius 류: 피부 재질이 검게 들어오는 경우 → 정점색이 있으면 그것을, 없으면 살색
         const c = o.material.color; if (c.r + c.g + c.b < .3) { const m = o.material.clone(); if (o.geometry && o.geometry.attributes && o.geometry.attributes.color) { m.vertexColors = true; m.color.set('#ffffff'); } else { m.color.set('#F1C8A5'); } m.needsUpdate = true; o.material = m; }
       }
-      if (kind === 'therapist' && /^(Shirt|Pants|Belt|Jacket|Vest|Skirt|Dress|Shoes)$/i.test(mn)) { // Quaternius 류: 재질 이름으로 옷 구분 → 치료복 색
-        const m = o.material.clone(); m.color = new THREE.Color(/Shirt|Jacket|Vest|Dress/i.test(mn) ? top : /Pants|Skirt/i.test(mn) ? bottom : /Shoes/i.test(mn) ? '#F3F4F6' : bottom); m.needsUpdate = true; o.material = m; return;
+      if (/^(Hat|Headwear)$/i.test(mn)) { o.visible = false; return; } // 모자(안전모·중절모)는 병원에 안 맞으므로 숨김
+      if (/^(Shirt|Pants|Belt|Jacket|Vest|Skirt|Dress|Shoes|Black|Details|Clothes|DarkClothes)$/i.test(mn)) { // Quaternius 류: 재질 이름으로 옷 구분 → 치료사는 남색, 환자는 연한 환자복
+        const m = o.material.clone(); m.color = new THREE.Color(/Shirt|Jacket|Vest|Dress|Clothes$/i.test(mn) && !/Dark/i.test(mn) ? top : /Shoes/i.test(mn) ? '#F3F4F6' : /Belt|Details/i.test(mn) ? (kind === 'therapist' ? '#0F1D33' : '#7B8FA3') : bottom); m.needsUpdate = true; o.material = m; return;
       }
       if (/Outfit_Top|Outfit_Bottom|Outfit_Footwear/i.test(nm) && o.material) {
         const m = o.material.clone(); m.map = null; m.color = new THREE.Color(/Top/i.test(nm) ? top : /Bottom/i.test(nm) ? bottom : '#F3F4F6'); m.roughness = .85; m.metalness = 0; m.needsUpdate = true; o.material = m;
@@ -171,7 +172,7 @@ window.Hospital3D = (() => {
   function applyPatientGlb(room, info, bx, bz, topY, type) {
     const urls = patientGlbUrls(info); if (!urls.length || !room.patient) return; const tryLoad = k => loadGlb(urls[k]).catch(e => { if (e.silent && k + 1 < urls.length) return tryLoad(k + 1); throw e; }); const pose = room.pose; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .3 : .36);
     tryLoad(0).then(gltf => {
-      if (!world.rooms.includes(room)) return; const model = gltf.scene; normalizeHeight(model, info.pediatric ? (Number(info.age) < 2 ? .8 : 1.15) : 1.7); const b = humanBones(model);
+      if (!world.rooms.includes(room)) return; const model = gltf.scene; const elderlyP = !info.pediatric && Number(info.age) >= 60; normalizeHeight(model, info.pediatric ? (Number(info.age) < 2 ? .72 : 1.05) : elderlyP ? 1.5 : 1.58); const b = humanBones(model);
       const wrap = new THREE.Group(); wrap.add(model); if (!facesPlusZ(model, b)) model.rotation.y = Math.PI; // model: 발이 원점, 정면 +z 로 통일
       armsDown(b); // T포즈 팔 내리기
       if (pose === 'sitting') {
@@ -191,7 +192,7 @@ window.Hospital3D = (() => {
   function loadGlbAvatar(urls, g, female) {
     const list = Array.isArray(urls) ? urls : [urls]; const tryLoad = k => loadGlb(list[k]).catch(e => { if (e.silent && k + 1 < list.length) return tryLoad(k + 1); throw e; });
     tryLoad(0).then(gltf => {
-      if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.7); if (facesPlusZ(model, humanBones(model))) model.rotation.y = Math.PI; // +z를 보는 모델은 돌려서 -z(진행 방향)를 보게
+      if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.58); if (world.nameTag) world.nameTag.position.y = 1.9; // 병원 규모에 맞게 조금 작게 if (facesPlusZ(model, humanBones(model))) model.rotation.y = Math.PI; // +z를 보는 모델은 돌려서 -z(진행 방향)를 보게
       dressModel(model, 'therapist'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
       g.children.forEach(ch => { if (ch !== world.nameTag) ch.visible = false; }); g.add(model);
       const b = humanBones(model); world.bones = b; armsDown(b); // T포즈 → 팔 내리기
@@ -540,7 +541,7 @@ window.Hospital3D = (() => {
       } else if (world.bones) { const b = world.bones; swing(b.lUp, sw * .5); swing(b.rUp, -sw * .5); swing(b.lArm, -sw * .4); swing(b.rArm, sw * .4); }
     }
     // 어깨너머 카메라(벽 뒤로 빠지지 않도록 거리 조절)
-    const fx0 = Math.sin(P.yaw), fz0 = -Math.cos(P.yaw); const rx0 = -fz0, rz0 = fx0; const inRoom = P.z < -.2; const DIST = inRoom ? 1.8 : 3.3, SIDE = inRoom ? .85 : .75; const camH = Math.max(1.4, Math.min(2.8, (inRoom ? 2.65 : 2.1) - P.pitch * 1.6)); // 치료실 안에서는 높은 어깨너머 시점으로 침대가 보이게
+    const fx0 = Math.sin(P.yaw), fz0 = -Math.cos(P.yaw); const rx0 = -fz0, rz0 = fx0; const inRoom = P.z < -.2; const DIST = inRoom ? 2.1 : 3.9, SIDE = inRoom ? .85 : .8; const camH = Math.max(1.4, Math.min(2.8, (inRoom ? 2.7 : 2.25) - P.pitch * 1.6)); // 치료실 안에서는 높은 어깨너머 시점으로 침대가 보이게
     const head = new THREE.Vector3(P.x, 1.5, P.z); const want = new THREE.Vector3(P.x - fx0 * DIST + rx0 * SIDE, camH, P.z - fz0 * DIST + rz0 * SIDE);
     let dist = DIST; if (world.walls.length) { const cr2 = world.camRc || (world.camRc = new THREE.Raycaster()); const dirv = want.clone().sub(head); const len = dirv.length(); dirv.normalize(); cr2.set(head, dirv); cr2.far = len; const hit = cr2.intersectObjects(world.walls, false)[0]; if (hit) dist = Math.max(.7, hit.distance - .25); }
     const t = dist / DIST; let wantPos = new THREE.Vector3(head.x + (want.x - head.x) * t, head.y + (want.y - head.y) * t, head.z + (want.z - head.z) * t);
