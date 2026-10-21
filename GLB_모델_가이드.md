@@ -104,3 +104,28 @@ PT 시뮬레이션 병원은 치료사(여/남)와 환자(여/남/아동/노인 
 ## 5. 다음 단계 아이디어
 - 환자 모델에 **표정·호흡 애니메이션**(GLB 애니메이션 클립)을 넣으면 앱이 첫 클립을 재생하도록 확장할 수 있습니다.
 - 병실 장비(치료 테이블·전기치료기)도 같은 방식으로 GLB 교체 슬롯을 만들 수 있습니다.
+
+## 5. 걷기 애니메이션이 들어 있는 모델 만들기 (Mixamo)
+
+앱은 GLB 안에 이름에 `walk`(또는 `run`)가 들어간 애니메이션 클립이 있으면 걸을 때 그 클립을 재생하고, `idle`이 들어간 클립이 있으면 멈춰 섰을 때 재생합니다. 클립이 없으면 뼈를 흔드는 임시 동작을 쓰기 때문에 어색합니다. 자연스러운 걷기를 원하면 아래처럼 Mixamo 애니메이션을 넣으세요.
+
+1. https://www.mixamo.com 에 Adobe 계정(무료)으로 로그인합니다.
+2. **캐릭터 고르기**: 상단 Characters 에서 마음에 드는 캐릭터를 고르거나, Upload Character 로 내 모델(GLB/FBX/OBJ, 예: Genspark·Meshy·Ready Player Me 결과물)을 올려 자동 리깅합니다.
+3. **걷기 넣기**: Animations 에서 `Walking` 검색 → 오른쪽 옵션에서 **In Place 체크**(제자리 걷기, 필수) → Download → Format `FBX Binary`, Skin `With Skin`, 30 fps.
+4. (선택) `Idle` 애니메이션도 같은 방식으로 Download(Skin `Without Skin`).
+5. **Blender(무료)에서 GLB로 합치기**: File → Import → FBX 로 걷기 파일을 가져옵니다. Idle 도 가져오면 같은 뼈 이름이라 Action 이 하나 더 생깁니다. Dope Sheet → Action Editor 에서 액션 이름을 `Walking`, `Idle` 로 바꾸고 각각 **Push Down**(NLA 트랙으로) 합니다. File → Export → glTF 2.0: Format `glb`, Animation 탭에서 `Group by NLA Track` 체크, Transform `+Y Up`.
+6. 파일 이름을 `therapist_m.glb`(또는 `therapist_f.glb`)로 바꿔 `app/assets/models/` 에 넣고 push 하면 끝입니다. 걷기 클립만 있어도 됩니다(멈추면 걷기 동작을 정지 자세로 세웁니다).
+
+## 6. 무료로 사람 모델을 구하는 곳
+
+| 사이트 | 특징 | 이 앱에서 쓰려면 |
+|---|---|---|
+| **Ready Player Me** (readyplayer.me) | 무료. 웹에서 얼굴·머리 모양·옷을 골라 만드는 반사실적 아바타. 머리카락 있는 캐릭터를 바로 만들 수 있고 Mixamo 호환 뼈대. | 완성 후 `.glb` 다운로드 → `therapist_m.glb` 로 저장. URL(`https://models.readyplayer.me/<id>.glb`)을 관리자 설정에 바로 넣어도 됩니다. 의료복이 없으면 앱이 상·하의를 치료복 색으로 자동 재채색합니다. 걷기는 5번 절차로 Mixamo 를 거치면 자연스러워집니다. |
+| **Mixamo** (mixamo.com) | 무료(Adobe 계정). 리깅된 캐릭터 수십 종 + 걷기·서기 등 애니메이션. 내 모델 자동 리깅. | 걷기 애니메이션을 넣는 가장 쉬운 경로(5번 절차). |
+| **MakeHuman** (makehumancommunity.org) | 무료 오픈소스 PC 프로그램. 나이·성별·체형 슬라이더로 사실적인 사람을 만들어 **노인·아이**도 만들 수 있음. 커뮤니티 에셋에 옷·머리카락 다수. | FBX 내보내기 → Mixamo 에 올려 리깅·걷기 → Blender 에서 GLB. 환자 유형별(`patient_elder_f.glb` 등) 모델을 만들기에 가장 적합. |
+| **Sketchfab** (sketchfab.com) | CC 라이선스 무료 모델 검색. 검색어 예: `rigged nurse`, `elderly woman rigged`, `child rigged`, `doctor scrubs`. | Download → glTF(.glb). 라이선스(출처 표기 등) 확인 후 사용. |
+| **Meshy / Tripo / Genspark** | AI로 사진·문장에서 3D 생성(무료 크레딧). 리깅은 없음. | GLB 내보내기 → Mixamo 자동 리깅 → Blender GLB. |
+| **VRoid Studio** (vroid.com) | 무료. 애니메이션풍 캐릭터, 머리·옷 커스터마이즈가 쉬움. | VRM 으로 저장 → Blender(VRM 애드온)로 GLB 변환. 화풍이 만화풍이라 취향에 따라. |
+| **Quaternius** (quaternius.com) | CC0 로우폴리 캐릭터 팩, Mixamo 호환 리깅·애니메이션 포함. | 단순한 스타일이지만 바로 쓸 수 있음. |
+
+권장 조합: 치료사는 **Ready Player Me(머리카락·얼굴) → Mixamo(걷기)**, 환자 6종은 **MakeHuman(나이·성별) → Mixamo(리깅)**.

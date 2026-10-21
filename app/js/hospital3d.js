@@ -73,7 +73,7 @@ window.Hospital3D = (() => {
   // ---------- 치료사 아바타(3인칭): 내장 스크럽 캐릭터 또는 외부 GLB ----------
   const playerInfo = () => Object.assign({ name: '치료사', sex: '여', glb: '' }, (typeof opts.player === 'function' ? opts.player() : opts.player) || {});
   function buildAvatar() {
-    if (world.avatar) { scene.remove(world.avatar); world.avatar = null; world.bones = null; }
+    if (world.avatar) { scene.remove(world.avatar); world.avatar = null; world.bones = null; } if (world.mixer) { world.mixer.stopAllAction(); world.mixer = null; world.anim = null; }
     const info = playerInfo(); const g = new THREE.Group(); world.avatar = g; scene.add(g);
     const female = info.sex === '여';
     const skin = mat('#F6D3B5'), scrub = mat('#2E9C8B'), scrubD = mat('#227B6E'), hair = mat(female ? '#3B2418' : '#2B1B12'), white = mat('#FFFFFF'), shoe = mat('#F3F4F6');
@@ -95,7 +95,7 @@ window.Hospital3D = (() => {
     g.userData.legs = legs; g.userData.arms = arms;
     // 이름표(머리 위)
     const tag = sprite([{ text: `${female ? '👩‍⚕️' : '👨‍⚕️'} ${info.name} 치료사` }], { w: 1.4, border: '#0F7A4D', depthTest: false }); tag.position.set(0, 2.02, 0); tag.renderOrder = 11; g.add(tag); world.nameTag = tag;
-    loadGlbAvatar([info.glb, female ? '' : CDN_GLB.M].filter(Boolean), g, female); // 여자 기본 공개 모델은 평상복이라 치료사로는 쓰지 않음(내장 치료복 캐릭터 유지)
+    loadGlbAvatar([info.glb].filter(Boolean), g, female); // GLB가 지정된 경우에만 교체, 없으면 내장 치료복 캐릭터
   }
   // ---------- GLB 공용 로더(치료사·환자) ----------
   const ensureGltf = () => (THREE.GLTFLoader ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'; sc.onload = res; sc.onerror = () => rej(new Error('GLTFLoader 로드 실패')); document.head.append(sc); }));
@@ -122,6 +122,8 @@ window.Hospital3D = (() => {
       if (hand) aimBone(fore, hand, new THREE.Vector3(0, -1, 0).addScaledVector(out, .45));
     });
   }
+  // 모델 정면 판정: 사람이 +z를 보면 왼팔이 +x 쪽에 있음. 반대면 -z를 보는 모델(예: three.js Soldier)
+  function facesPlusZ(model, b) { if (!b || !b.lArm || !b.rArm) return true; model.updateMatrixWorld(true); const l = new THREE.Vector3(), r = new THREE.Vector3(); b.lArm.getWorldPosition(l); b.rArm.getWorldPosition(r); return l.x >= r.x; }
   function swing(bone, angle) { if (!bone) return; if (!bone.userData.baseQ) bone.userData.baseQ = bone.quaternion.clone(); bone.quaternion.copy(bone.userData.baseQ).multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), angle)); }
   function normalizeHeight(model, target) {
     model.updateMatrixWorld(true); let minY = Infinity, maxY = -Infinity; const v = new THREE.Vector3();
@@ -132,7 +134,7 @@ window.Hospital3D = (() => {
   const patientGlbUrls = info => { const u = (typeof opts.patientGlb === 'function' ? opts.patientGlb() : opts.patientGlb) || {}; const elderly = !info.pediatric && Number(info.age) >= 60; const list = info.pediatric ? [u.child] : elderly ? (info.sex === '남' ? [u.elderM, u.M] : [u.elderF, u.F]) : (info.sex === '남' ? [u.M] : [u.F]); /* 환자는 공개 기본 모델을 쓰지 않음(할머니·할아버지·아이를 표현 못 함) → 파일이 없으면 내장 환자 */ return [...new Set(list.filter(Boolean))]; }; // 앞의 파일이 없으면 다음 후보로
   const patientGlbUrl = info => patientGlbUrls(info)[0] || '';
   // 기본 사람 모델(리깅된 공개 GLB, three.js 예제 저장소·jsDelivr): 저장소 assets/models 에 파일이 없을 때 마지막 후보
-  const CDN_GLB = { F: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/models/gltf/Michelle.glb', M: 'https://cdn.jsdelivr.net/gh/mrdoob/three.js@r170/examples/models/gltf/readyplayer.me.glb' };
+  // (참고) 공개 샘플 모델은 대머리·평상복이라 기본값으로 쓰지 않음. 사용자가 넣은 GLB만 사용
   // 옷 입히기: Ready Player Me 계열(Wolf3D_*) 메시는 상의·하의를 단색으로 바꿔 치료복/환자복처럼, 모자는 숨김
   function dressModel(model, kind) {
     const top = kind === 'therapist' ? '#2E9C8B' : '#BFD7EA', bottom = kind === 'therapist' ? '#227B6E' : '#BFD7EA';
@@ -156,7 +158,7 @@ window.Hospital3D = (() => {
     const urls = patientGlbUrls(info); if (!urls.length || !room.patient) return; const tryLoad = k => loadGlb(urls[k]).catch(e => { if (e.silent && k + 1 < urls.length) return tryLoad(k + 1); throw e; }); const pose = room.pose; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .3 : .36);
     tryLoad(0).then(gltf => {
       if (!world.rooms.includes(room)) return; const model = gltf.scene; normalizeHeight(model, info.pediatric ? (Number(info.age) < 2 ? .8 : 1.15) : 1.7); const b = humanBones(model);
-      const wrap = new THREE.Group(); wrap.add(model); // model: 발이 원점, 정면 +z
+      const wrap = new THREE.Group(); wrap.add(model); if (!facesPlusZ(model, b)) model.rotation.y = Math.PI; // model: 발이 원점, 정면 +z 로 통일
       armsDown(b); // T포즈 팔 내리기
       if (pose === 'sitting') {
         if (b.lUp && b.rUp && b.hips) {
@@ -175,10 +177,13 @@ window.Hospital3D = (() => {
   function loadGlbAvatar(urls, g, female) {
     const list = Array.isArray(urls) ? urls : [urls]; const tryLoad = k => loadGlb(list[k]).catch(e => { if (e.silent && k + 1 < list.length) return tryLoad(k + 1); throw e; });
     tryLoad(0).then(gltf => {
-      if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.7); model.rotation.y = Math.PI; // 보통 +z를 바라봄 → -z로
+      if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.7); if (facesPlusZ(model, humanBones(model))) model.rotation.y = Math.PI; // +z를 보는 모델은 돌려서 -z(진행 방향)를 보게
       dressModel(model, 'therapist'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
       g.children.forEach(ch => { if (ch !== world.nameTag) ch.visible = false; }); g.add(model);
       const b = humanBones(model); world.bones = b; armsDown(b); // T포즈 → 팔 내리기
+      // GLB에 걷기/서기 애니메이션 클립이 있으면(Mixamo 등) 뼈 흔들기 대신 그 클립을 재생
+      const clips = gltf.animations || []; const walkClip = clips.find(c => /walk/i.test(c.name)) || clips.find(c => /run/i.test(c.name)); const idleClip = clips.find(c => /idle|breath|stand/i.test(c.name));
+      if (walkClip || idleClip) { const mixer = new THREE.AnimationMixer(model); world.mixer = mixer; world.anim = { walk: walkClip ? mixer.clipAction(walkClip) : null, idle: idleClip ? mixer.clipAction(idleClip) : null, cur: null }; }
     }).catch(e => { if (e.silent) return; if (U && U.toast) U.toast('외부 아바타 로드 실패: ' + e.message + ' (내장 캐릭터 사용)', 'err'); });
   }
   function setPlayer() { if (built) buildAvatar(); }
@@ -479,7 +484,7 @@ window.Hospital3D = (() => {
   // ---------- 렌더 ----------
   function tick(ts) { const dt = Math.min(.1, Math.max(0, (ts - lastTs) / 1000)); lastTs = ts; update(dt); render(ts, dt); }
   function loop(ts) { if (!running) return; tick(ts); raf = requestAnimationFrame(loop); }
-  function render(ts) {
+  function render(ts, dt) {
     if (!built || !renderer) return;
     const infos = world.rooms.map(r => (opts.getRoom && opts.getRoom(r.i)) || {}); const key = infos.map(x => (x.label || '-') + ':' + x.status).join('|') + '#' + floor;
     if (key !== world.labelKey) {
@@ -513,7 +518,12 @@ window.Hospital3D = (() => {
       const sw = moving ? Math.sin(P.bob) : 0; const legs = av.userData.legs || [], arms = av.userData.arms || [];
       legs.forEach((lg, i) => lg.rotation.x = sw * .6 * (i ? -1 : 1)); arms.forEach((ar, i) => ar.rotation.x = sw * .5 * (i ? 1 : -1));
       av.position.y = moving ? Math.abs(Math.sin(P.bob)) * .03 : 0;
-      if (world.bones) { const b = world.bones; swing(b.lUp, sw * .5); swing(b.rUp, -sw * .5); swing(b.lArm, -sw * .4); swing(b.rArm, sw * .4); }
+      if (world.mixer && world.anim) { // 애니메이션 클립 기반 걷기/서기
+        const A = world.anim; const want = moving ? (A.walk || A.idle) : (A.idle || A.walk);
+        if (want && A.cur !== want) { if (A.cur) A.cur.fadeOut(.25); want.reset().fadeIn(.25).play(); A.cur = want; }
+        if (want && want === A.walk && !A.idle) want.paused = !moving; // 서기 클립이 없으면 걷기 클립을 멈춰 세움
+        world.mixer.update(dt || .016);
+      } else if (world.bones) { const b = world.bones; swing(b.lUp, sw * .5); swing(b.rUp, -sw * .5); swing(b.lArm, -sw * .4); swing(b.rArm, sw * .4); }
     }
     // 어깨너머 카메라(벽 뒤로 빠지지 않도록 거리 조절)
     const fx0 = Math.sin(P.yaw), fz0 = -Math.cos(P.yaw); const rx0 = -fz0, rz0 = fx0; const inRoom = P.z < -.2; const DIST = inRoom ? 1.8 : 3.3, SIDE = inRoom ? .85 : .75; const camH = Math.max(1.4, Math.min(2.8, (inRoom ? 2.65 : 2.1) - P.pitch * 1.6)); // 치료실 안에서는 높은 어깨너머 시점으로 침대가 보이게
