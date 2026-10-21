@@ -192,13 +192,13 @@ window.Hospital3D = (() => {
   function loadGlbAvatar(urls, g, female) {
     const list = Array.isArray(urls) ? urls : [urls]; const tryLoad = k => loadGlb(list[k]).catch(e => { if (e.silent && k + 1 < list.length) return tryLoad(k + 1); throw e; });
     tryLoad(0).then(gltf => {
-      if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.58); if (world.nameTag) world.nameTag.position.y = 1.9; // 병원 규모에 맞게 조금 작게 if (facesPlusZ(model, humanBones(model))) model.rotation.y = Math.PI; // +z를 보는 모델은 돌려서 -z(진행 방향)를 보게
+      if (world.avatar !== g) return; const model = gltf.scene; normalizeHeight(model, 1.58); if (world.nameTag) world.nameTag.position.y = 1.9; if (facesPlusZ(model, humanBones(model))) model.rotation.y = Math.PI; world.glbModel = model; /* 병원 규모에 맞게 조금 작게 · +z를 보는 모델은 돌려서 -z(진행 방향)를 보게 */
       dressModel(model, 'therapist'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; } });
       g.children.forEach(ch => { if (ch !== world.nameTag) ch.visible = false; }); g.add(model);
       const b = humanBones(model); world.bones = b; armsDown(b); // T포즈 → 팔 내리기
       // GLB에 걷기/서기 애니메이션 클립이 있으면(Mixamo 등) 뼈 흔들기 대신 그 클립을 재생
       const clips = gltf.animations || []; const walkClip = clips.find(c => /walk/i.test(c.name)) || clips.find(c => /run/i.test(c.name)); const idleClip = clips.find(c => /idle|breath|stand/i.test(c.name));
-      if (walkClip || idleClip) { const mixer = new THREE.AnimationMixer(model); world.mixer = mixer; world.anim = { walk: walkClip ? mixer.clipAction(walkClip) : null, idle: idleClip ? mixer.clipAction(idleClip) : null, cur: null }; }
+      if (walkClip || idleClip) { const mixer = new THREE.AnimationMixer(model); world.mixer = mixer; world.anim = { walk: walkClip ? mixer.clipAction(walkClip) : null, idle: idleClip ? mixer.clipAction(idleClip) : null, cur: null, checked: false }; }
     }).catch(e => { if (e.silent) return; if (U && U.toast) U.toast('외부 아바타 로드 실패: ' + e.message + ' (내장 캐릭터 사용)', 'err'); });
   }
   function setPlayer() { if (built) buildAvatar(); }
@@ -538,6 +538,12 @@ window.Hospital3D = (() => {
         if (want && A.cur !== want) { if (A.cur) A.cur.fadeOut(.25); want.reset().fadeIn(.25).play(); A.cur = want; }
         if (want && want === A.walk && !A.idle) want.paused = !moving; // 서기 클립이 없으면 걷기 클립을 멈춰 세움
         world.mixer.update(dt || .016);
+        // 클립이 뼈대를 돌려놓는 경우를 대비해, 애니메이션이 한 번 적용된 뒤 어깨선으로 실제 정면을 확인하고 뒤집혀 있으면 180° 돌림
+        if (!A.checked && A.cur && A.cur.time > .05 && world.bones && world.bones.lArm && world.bones.rArm && world.glbModel) {
+          A.checked = true; const l = new THREE.Vector3(), r = new THREE.Vector3(); world.bones.lArm.getWorldPosition(l); world.bones.rArm.getWorldPosition(r);
+          const fwdB = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), r.sub(l)); const fwdA = new THREE.Vector3(Math.sin(P.yaw), 0, -Math.cos(P.yaw));
+          if (fwdB.lengthSq() > 1e-6 && fwdB.dot(fwdA) < 0) world.glbModel.rotation.y += Math.PI;
+        }
       } else if (world.bones) { const b = world.bones; swing(b.lUp, sw * .5); swing(b.rUp, -sw * .5); swing(b.lArm, -sw * .4); swing(b.rArm, sw * .4); }
     }
     // 어깨너머 카메라(벽 뒤로 빠지지 않도록 거리 조절)
