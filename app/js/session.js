@@ -78,7 +78,12 @@ window.Session = (() => {
         U.append(chips, chip);
       });
       (room.aiChat || []).forEach(m => addBubble(m.role === 'me' ? 'me' : 'pt', m.text));
-      let askRow = null, inpRef = null; const aiOn = Store.geminiAvailable(); const localReply = t => { const toks = (t.match(/[가-힣A-Za-z0-9]{2,}/g) || []); let best = null, bs = 0; c.S.chat.forEach(([q, a], k) => { const sc = toks.filter(w => (q + a).includes(w)).length; if (sc > bs) { bs = sc; best = [q, a, k]; } }); if (best) { room.chatOpened.add(best[2]); return best[1]; } return '음… 그건 잘 모르겠어요. 다른 걸 물어봐 주세요.'; };
+      let askRow = null, inpRef = null; const aiOn = Store.geminiAvailable(); const localReply = t => { // AI 키가 없을 때의 임시 응답: 겹치는 단어가 충분할 때만 답하고, 애매하면 어떤 질문으로 이해했는지 밝힘
+        const stop = new Set(['어떻게', '언제', '어디', '혹시', '지금', '그런', '있나요', '인가요', '해요', '세요', '정도', '혹은', '그리고', '환자']); const toks = (t.match(/[가-힣A-Za-z0-9]{2,}/g) || []).filter(w => !stop.has(w)); let best = null, bs = 0;
+        c.S.chat.forEach(([q, a], k) => { const sc = toks.reduce((n, w) => n + ((q.includes(w) ? 2 : 0) + (a.includes(w) ? 1 : 0)), 0); if (sc > bs) { bs = sc; best = [q, a, k]; } });
+        if (best && bs >= 3) { room.chatOpened.add(best[2]); return best[1]; }
+        if (best && bs > 0) { room.chatOpened.add(best[2]); return '혹시 「' + best[0] + '」 말씀이신가요? ' + best[1]; }
+        return '음… 그건 잘 모르겠어요. 이런 건 답할 수 있어요: ' + c.S.chat.map(x => x[0]).join(' / '); };
       {
         const inp = h('input', { class: 'input', autocomplete: 'off', enterkeyhint: 'send', placeholder: `${p.informant ? p.informant + '에게' : '환자에게'} 직접 질문하기 (예: 밤에 더 아픈가요?)`, maxlength: '160' }); inpRef = inp;
         const send = async () => {
