@@ -5,7 +5,7 @@ window.Store = (() => {
     set(k, v) { try { localStorage.setItem('pt:' + k, JSON.stringify(v)); } catch (e) { console.warn('localStorage', e); } },
     del(k) { try { localStorage.removeItem('pt:' + k); } catch (e) { /* ignore */ } }
   };
-  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbChildF: '', patientGlbChildM: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
   const PUB = () => window.PT_CONFIG || {};
   const S = { remote: false, geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null };
 

@@ -150,3 +150,11 @@ PC Chrome/Edge에서는 관리자 콘솔 → 성적 관리에서 **"결과 자�
 - GLB 안에 `walk`/`run` 이름의 애니메이션 클립이 있으면 걸을 때 재생하고 `idle` 클립이 있으면 멈출 때 재생합니다(Mixamo 결과물 그대로 동작). 클립이 없을 때만 뼈 흔들기 임시 동작을 씁니다.
 - 공개 샘플(Ready Player Me 대머리 남성)은 기본 치료사로 쓰지 않습니다. 사용자가 GLB를 넣기 전까지는 여/남 모두 내장 치료복 캐릭터입니다.
 - [GLB_모델_가이드.md](GLB_모델_가이드.md) 에 `5. 걷기 애니메이션 넣기(Mixamo)` 와 `6. 무료로 사람 모델을 구하는 곳`(Ready Player Me·Mixamo·MakeHuman·Sketchfab 등) 절을 추가했습니다.
+
+## 2026-10-21 업데이트 11: 공개 CC0 사람 모델 자동 사용(치료사·환자 8종)
+- 저장소에 GLB 파일이 없으면 **Quaternius 'Ultimate Animated Character Pack'(CC0, 상업·교육 이용 무료)** 의 모델을 Cinevva CDN(`cdn.cinevva.com`)에서 불러와 씁니다. 머리카락이 있고 걷기·서기 애니메이션이 들어 있어 자연스럽게 걷습니다.
+  - 치료사 여/남: Casual_Female / Casual_Male (상·하의를 치료복 색으로 자동 변경)
+  - 성인 여/남 환자: Casual2_Female / Casual2_Male · 할머니/할아버지: OldClassy_Female / OldClassy_Male · 여자아이/남자아이: Casual3_Female / Casual3_Male (키 1.15 m 로 축소)
+- 우선순위: 관리자 설정 → `app/assets/models/` 기본 파일명 → 공개 모델. `app/js/config.js` 의 `publicModels: false` 로 끄면 내장 캐릭터만 씁니다. 여자아이/남자아이 슬롯(`patientGlbChildF/M`)이 추가됐습니다.
+- 엔진: Quaternius 뼈 이름(UpperArmL 등) 인식, 리그가 머리 끝까지 닿지 않는 모델의 키 보정(메시 바운딩 박스 사용), 검게 들어오는 Skin 재질 보정.
+- 출처: Quaternius (https://quaternius.com, CC0) · 배포 CDN: Cinevva 무료 에셋 카탈로그 (https://app.cinevva.com/game-assets/free-3d-character-models)

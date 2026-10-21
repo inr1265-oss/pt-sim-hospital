@@ -129,3 +129,21 @@ PT 시뮬레이션 병원은 치료사(여/남)와 환자(여/남/아동/노인 
 | **Quaternius** (quaternius.com) | CC0 로우폴리 캐릭터 팩, Mixamo 호환 리깅·애니메이션 포함. | 단순한 스타일이지만 바로 쓸 수 있음. |
 
 권장 조합: 치료사는 **Ready Player Me(머리카락·얼굴) → Mixamo(걷기)**, 환자 6종은 **MakeHuman(나이·성별) → Mixamo(리깅)**.
+
+## 7. 지금 기본으로 쓰이는 공개 모델
+
+파일을 넣지 않아도 아래 공개 모델(Quaternius Ultimate Animated Character Pack, **CC0**)이 자동으로 쓰입니다. 같은 팩의 다른 캐릭터(Suit, Worker, Chef, Kimono, Cowboy …)로 바꾸고 싶으면 관리자 설정의 해당 칸에 URL 을 넣으면 됩니다.
+
+| 슬롯 | 기본 공개 모델 URL |
+|---|---|
+| 여자 치료사 | https://cdn.cinevva.com/assets/packs/quaternius/ultimate-animated-characters/Casual_Female.glb |
+| 남자 치료사 | https://cdn.cinevva.com/assets/packs/quaternius/ultimate-animated-characters/Casual_Male.glb |
+| 성인 여자 환자 | …/Casual2_Female.glb |
+| 성인 남자 환자 | …/Casual2_Male.glb |
+| 할머니 | …/OldClassy_Female.glb |
+| 할아버지 | …/OldClassy_Male.glb |
+| 여자아이 | …/Casual3_Female.glb |
+| 남자아이 | …/Casual3_Male.glb |
+
+같은 폴더에 있는 다른 파일: Suit_Female/Male, Worker_Female/Male, Chef_Female/Male, Kimono_Female/Male, Cowboy_Female/Male, Ninja_Female/Male, Viking_Female/Male, Casual_Bald, Pirate_Female, Witch, Goblin_Female/Male.
+인터넷이 안 되거나 CDN 이 막히면 자동으로 내장 캐릭터로 돌아갑니다. `app/js/config.js` 의 `publicModels: false` 로 끌 수 있습니다.

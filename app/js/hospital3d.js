@@ -95,7 +95,7 @@ window.Hospital3D = (() => {
     g.userData.legs = legs; g.userData.arms = arms;
     // 이름표(머리 위)
     const tag = sprite([{ text: `${female ? '👩‍⚕️' : '👨‍⚕️'} ${info.name} 치료사` }], { w: 1.4, border: '#0F7A4D', depthTest: false }); tag.position.set(0, 2.02, 0); tag.renderOrder = 11; g.add(tag); world.nameTag = tag;
-    loadGlbAvatar([info.glb].filter(Boolean), g, female); // GLB가 지정된 경우에만 교체, 없으면 내장 치료복 캐릭터
+    loadGlbAvatar([info.glb, publicOn() ? (female ? PUBLIC_GLB.therapistF : PUBLIC_GLB.therapistM) : ''].filter(Boolean), g, female); // 지정 GLB → 공개 기본 모델 → 내장 캐릭터
   }
   // ---------- GLB 공용 로더(치료사·환자) ----------
   const ensureGltf = () => (THREE.GLTFLoader ? Promise.resolve() : new Promise((res, rej) => { const sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js'; sc.onload = res; sc.onerror = () => rej(new Error('GLTFLoader 로드 실패')); document.head.append(sc); }));
@@ -104,7 +104,8 @@ window.Hospital3D = (() => {
   function probeGlb(url) { if (glbMissing.has(url)) return Promise.reject(glbAbsent(url)); if (/^(https?:)?\/\//.test(url)) return Promise.resolve(); return fetch(url, { method: 'HEAD', cache: 'no-store' }).then(r => { if (!r.ok && r.status !== 405) { glbMissing.add(url); throw glbAbsent(url); } }, () => { glbMissing.add(url); throw glbAbsent(url); }); }
   function loadGlb(url) { if (window.THREE && THREE.Cache) THREE.Cache.enabled = true; return probeGlb(url).then(ensureGltf).then(() => new Promise((res, rej) => new THREE.GLTFLoader().load(url, res, undefined, () => rej(new Error('모델을 내려받지 못했어요 (URL·CORS 확인)'))))); }
   function findBone(model, names) { let b = null; model.traverse(o => { if (!b && o.isBone && names.some(n => o.name === n || o.name.endsWith(n))) b = o; }); return b; }
-  function humanBones(model) { const f = n => findBone(model, [n, 'mixamorig' + n]); return { hips: f('Hips'), lUp: f('LeftUpLeg'), rUp: f('RightUpLeg'), lLeg: f('LeftLeg'), rLeg: f('RightLeg'), lArm: f('LeftArm'), rArm: f('RightArm'), lFore: f('LeftForeArm'), rFore: f('RightForeArm'), lHand: f('LeftHand'), rHand: f('RightHand'), lFoot: f('LeftFoot'), rFoot: f('RightFoot') }; }
+  // Mixamo(LeftUpLeg…), Quaternius(UpperLegL…), 기타 흔한 이름을 모두 인식
+  function humanBones(model) { const f = (...names) => findBone(model, names.flatMap(nm => [nm, 'mixamorig' + nm])); return { hips: f('Hips', 'Pelvis'), lUp: f('LeftUpLeg', 'UpperLegL', 'LeftUpperLeg', 'Thigh_L'), rUp: f('RightUpLeg', 'UpperLegR', 'RightUpperLeg', 'Thigh_R'), lLeg: f('LeftLeg', 'LowerLegL', 'LeftLowerLeg', 'Shin_L'), rLeg: f('RightLeg', 'LowerLegR', 'RightLowerLeg', 'Shin_R'), lArm: f('LeftArm', 'UpperArmL', 'LeftUpperArm', 'UpperArm_L'), rArm: f('RightArm', 'UpperArmR', 'RightUpperArm', 'UpperArm_R'), lFore: f('LeftForeArm', 'LowerArmL', 'LeftLowerArm', 'LowerArm_L'), rFore: f('RightForeArm', 'LowerArmR', 'RightLowerArm', 'LowerArm_R'), lHand: f('LeftHand', 'FistL', 'HandL', 'Hand_L'), rHand: f('RightHand', 'FistR', 'HandR', 'Hand_R'), lFoot: f('LeftFoot', 'FootL', 'Foot_L'), rFoot: f('RightFoot', 'FootR', 'Foot_R') }; }
   // 뼈가 어떤 축으로 리깅됐든 동작하도록, 뼈→자식뼈 방향을 원하는 월드 방향으로 돌림
   function aimBone(bone, child, dirWorld) {
     bone.updateWorldMatrix(true, false); child.updateWorldMatrix(true, false);
@@ -128,13 +129,19 @@ window.Hospital3D = (() => {
   function normalizeHeight(model, target) {
     model.updateMatrixWorld(true); let minY = Infinity, maxY = -Infinity; const v = new THREE.Vector3();
     model.traverse(o => { if (o.isBone) { o.getWorldPosition(v); minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y); } });
-    if (!isFinite(minY) || maxY - minY < .05) { const bb = new THREE.Box3().setFromObject(model); minY = bb.min.y; maxY = bb.max.y; }
+    // 뼈 높이는 머리 끝까지 닿지 않는 리그(Quaternius 등)에서 작게 나오므로, 메시 바운딩 박스가 그럴듯하면(뼈 높이의 0.95~1.6배) 그것을 씀
+    const bb = new THREE.Box3().setFromObject(model); const bbH = bb.max.y - bb.min.y; const boneH = maxY - minY;
+    if (!isFinite(minY) || boneH < .05) { minY = bb.min.y; maxY = bb.max.y; } else if (isFinite(bbH) && bbH >= boneH * .95 && bbH <= boneH * 1.6) { minY = Math.min(minY, bb.min.y); maxY = minY + bbH; }
     const h = (maxY - minY) || 1; const k = target / h; model.scale.setScalar(k); model.position.y = -minY * k; model.updateMatrixWorld(true); return k;
   }
-  const patientGlbUrls = info => { const u = (typeof opts.patientGlb === 'function' ? opts.patientGlb() : opts.patientGlb) || {}; const elderly = !info.pediatric && Number(info.age) >= 60; const list = info.pediatric ? [u.child] : elderly ? (info.sex === '남' ? [u.elderM, u.M] : [u.elderF, u.F]) : (info.sex === '남' ? [u.M] : [u.F]); /* 환자는 공개 기본 모델을 쓰지 않음(할머니·할아버지·아이를 표현 못 함) → 파일이 없으면 내장 환자 */ return [...new Set(list.filter(Boolean))]; }; // 앞의 파일이 없으면 다음 후보로
+  const patientGlbUrls = info => { const u = (typeof opts.patientGlb === 'function' ? opts.patientGlb() : opts.patientGlb) || {}; const elderly = !info.pediatric && Number(info.age) >= 60; const m = info.sex === '남'; const pubList = publicOn() ? (info.pediatric ? [m ? PUBLIC_GLB.childM : PUBLIC_GLB.childF] : elderly ? [m ? PUBLIC_GLB.elderM : PUBLIC_GLB.elderF] : [m ? PUBLIC_GLB.M : PUBLIC_GLB.F]) : []; const list = (info.pediatric ? [m ? u.childM : u.childF, u.child] : elderly ? (m ? [u.elderM, u.M] : [u.elderF, u.F]) : (m ? [u.M] : [u.F])).concat(pubList); /* 환자는 공개 기본 모델을 쓰지 않음(할머니·할아버지·아이를 표현 못 함) → 파일이 없으면 내장 환자 */ return [...new Set(list.filter(Boolean))]; }; // 앞의 파일이 없으면 다음 후보로
   const patientGlbUrl = info => patientGlbUrls(info)[0] || '';
   // 기본 사람 모델(리깅된 공개 GLB, three.js 예제 저장소·jsDelivr): 저장소 assets/models 에 파일이 없을 때 마지막 후보
-  // (참고) 공개 샘플 모델은 대머리·평상복이라 기본값으로 쓰지 않음. 사용자가 넣은 GLB만 사용
+  // 공개 기본 모델(Quaternius 'Ultimate Animated Characters', CC0, Cinevva CDN): 머리카락·걷기/서기 클립 포함. 저장소 파일이 없을 때 마지막 후보.
+  // config.js 의 publicModels:false 로 끌 수 있음
+  const PUB_BASE = 'https://cdn.cinevva.com/assets/packs/quaternius/ultimate-animated-characters/';
+  const PUBLIC_GLB = { therapistF: PUB_BASE + 'Casual_Female.glb', therapistM: PUB_BASE + 'Casual_Male.glb', F: PUB_BASE + 'Casual2_Female.glb', M: PUB_BASE + 'Casual2_Male.glb', elderF: PUB_BASE + 'OldClassy_Female.glb', elderM: PUB_BASE + 'OldClassy_Male.glb', childF: PUB_BASE + 'Casual3_Female.glb', childM: PUB_BASE + 'Casual3_Male.glb' };
+  const publicOn = () => opts.publicModels !== false;
   // 옷 입히기: Ready Player Me 계열(Wolf3D_*) 메시는 상의·하의를 단색으로 바꿔 치료복/환자복처럼, 모자는 숨김
   function dressModel(model, kind) {
     const top = kind === 'therapist' ? '#2E9C8B' : '#BFD7EA', bottom = kind === 'therapist' ? '#227B6E' : '#BFD7EA';
@@ -147,6 +154,13 @@ window.Hospital3D = (() => {
           for (let i = 0; i < d.length; i += 4) { const r = d[i], g = d[i + 1], bl = d[i + 2]; const mx = Math.max(r, g, bl), mn = Math.min(r, g, bl); if (mx === mn || mx === 0) continue; const sat = (mx - mn) / mx; let h = mx === r ? ((g - bl) / (mx - mn)) % 6 : mx === g ? (bl - r) / (mx - mn) + 2 : (r - g) / (mx - mn) + 4; h *= 60; if (h < 0) h += 360; if (sat > .35 && h >= 38 && h <= 68) { const l = mx / 255; const c = kind === 'therapist' ? [60, 170, 152] : [185, 205, 230]; d[i] = Math.round(c[0] * l); d[i + 1] = Math.round(c[1] * l); d[i + 2] = Math.round(c[2] * l); } }
           x.putImageData(id, 0, 0); const m = o.material.clone(); const tx = new THREE.CanvasTexture(cv); tx.flipY = false; tx.encoding = o.material.map.encoding; m.map = tx; m.userData.recolored = true; m.needsUpdate = true; o.material = m; } catch (e) { /* 실패하면 원본 유지 */ }
         return;
+      }
+      const mn = (o.material && o.material.name) || '';
+      if (/^Skin$/i.test(mn) && o.material.color) { // Quaternius 류: 피부 재질이 검게 들어오는 경우 → 정점색이 있으면 그것을, 없으면 살색
+        const c = o.material.color; if (c.r + c.g + c.b < .3) { const m = o.material.clone(); if (o.geometry && o.geometry.attributes && o.geometry.attributes.color) { m.vertexColors = true; m.color.set('#ffffff'); } else { m.color.set('#F1C8A5'); } m.needsUpdate = true; o.material = m; }
+      }
+      if (kind === 'therapist' && /^(Shirt|Pants|Belt|Jacket|Vest|Skirt|Dress|Shoes)$/i.test(mn)) { // Quaternius 류: 재질 이름으로 옷 구분 → 치료복 색
+        const m = o.material.clone(); m.color = new THREE.Color(/Shirt|Jacket|Vest|Dress/i.test(mn) ? top : /Pants|Skirt/i.test(mn) ? bottom : /Shoes/i.test(mn) ? '#F3F4F6' : bottom); m.needsUpdate = true; o.material = m; return;
       }
       if (/Outfit_Top|Outfit_Bottom|Outfit_Footwear/i.test(nm) && o.material) {
         const m = o.material.clone(); m.map = null; m.color = new THREE.Color(/Top/i.test(nm) ? top : /Bottom/i.test(nm) ? bottom : '#F3F4F6'); m.roughness = .85; m.metalness = 0; m.needsUpdate = true; o.material = m;

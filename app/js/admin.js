@@ -108,10 +108,10 @@ window.Admin = (() => {
       field('avatarGlbF', '여자 치료사 GLB URL'), field('avatarGlbM', '남자 치료사 GLB URL'),
       h('h3', { class: 'mt' }, '🛏️ 환자 3D 모델(선택)'),
       h('p', { class: 'muted small' }, '환자도 GLB로 교체할 수 있습니다. 저장소의 app/assets/models/ 에 파일을 넣고 상대 경로(예: assets/models/patient_f.glb)를 적거나 공개 URL을 넣으세요. Mixamo 리깅(Hips·LeftUpLeg 등)이 있으면 누움·엎드림·앉음 자세를 자동으로 잡고, 리깅이 없으면 누운 자세로만 눕힙니다. 자세한 제작 절차는 app/assets/models/README.md 를 보세요.'),
-      field('patientGlbF', '성인 여자 환자 GLB'), field('patientGlbM', '성인 남자 환자 GLB'), field('patientGlbChild', '소아 환자 GLB'), field('patientGlbElderF', '노인 여자 환자 GLB (비우면 성인 여자 사용)'), field('patientGlbElderM', '노인 남자 환자 GLB (비우면 성인 남자 사용)'),
+      field('patientGlbF', '성인 여자 환자 GLB'), field('patientGlbM', '성인 남자 환자 GLB'), field('patientGlbChild', '소아 환자 GLB (공통)'), field('patientGlbChildF', '여자아이 환자 GLB'), field('patientGlbChildM', '남자아이 환자 GLB'), field('patientGlbElderF', '노인 여자 환자 GLB (비우면 성인 여자 사용)'), field('patientGlbElderM', '노인 남자 환자 GLB (비우면 성인 남자 사용)'),
       h('h3', { class: 'mt' }, '📤 GLB 파일 업로드 (서버 모드)'),
       Store.remote ? (() => {
-        const slot = h('select', { class: 'input', style: { maxWidth: '260px' } }, [['patientGlbF', '성인 여자 환자'], ['patientGlbM', '성인 남자 환자'], ['patientGlbChild', '소아 환자'], ['patientGlbElderF', '노인 여자 환자'], ['patientGlbElderM', '노인 남자 환자'], ['avatarGlbF', '여자 치료사'], ['avatarGlbM', '남자 치료사']].map(([v, t]) => h('option', { value: v, text: t })));
+        const slot = h('select', { class: 'input', style: { maxWidth: '260px' } }, [['patientGlbF', '성인 여자 환자'], ['patientGlbM', '성인 남자 환자'], ['patientGlbChild', '소아 환자(공통)'], ['patientGlbChildF', '여자아이 환자'], ['patientGlbChildM', '남자아이 환자'], ['patientGlbElderF', '노인 여자 환자'], ['patientGlbElderM', '노인 남자 환자'], ['avatarGlbF', '여자 치료사'], ['avatarGlbM', '남자 치료사']].map(([v, t]) => h('option', { value: v, text: t })));
         const fileIn = h('input', { class: 'input', type: 'file', accept: '.glb,.gltf', style: { maxWidth: '320px' } }); const out = h('div', { class: 'tiny muted' });
         const btn = h('button', { class: 'btn primary', onClick: async () => {
           const file = fileIn.files && fileIn.files[0]; if (!file) return toast('GLB 파일을 먼저 선택하세요.', 'err'); if (file.size > 80 * 1024 * 1024) return toast('80 MB 이하 파일만 업로드할 수 있어요.', 'err');

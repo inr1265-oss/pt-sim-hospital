@@ -12,6 +12,10 @@ window.PT_CONFIG = {
   patientGlbF: "assets/models/patient_f.glb",
   patientGlbM: "assets/models/patient_m.glb",
   patientGlbChild: "assets/models/patient_child.glb",
+  patientGlbChildF: "assets/models/patient_child_f.glb",
+  patientGlbChildM: "assets/models/patient_child_m.glb",
   patientGlbElderF: "assets/models/patient_elder_f.glb",
-  patientGlbElderM: "assets/models/patient_elder_m.glb"
+  patientGlbElderM: "assets/models/patient_elder_m.glb",
+  // 위 파일이 없을 때 공개 기본 모델(Quaternius CC0, CDN)을 쓸지 여부. false 면 내장 캐릭터만 사용
+  publicModels: true
 };
