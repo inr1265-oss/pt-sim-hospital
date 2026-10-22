@@ -58,6 +58,8 @@ window.App = (() => {
     const my = (await Store.getResults(user.studentId)).filter(r => r.mode !== 'practice').sort((a, b) => b.date.localeCompare(a.date));
     const best = my.length ? Math.max(...my.map(r => r.score)) : null;
     const subject = getSubject();
+    const st = PTProgress.stats(my, { passScore });
+    const statusLine = st.attempts ? h('div', { class: 'hero-status', onClick: () => show('records') }, h('span', { class: 'status-badge ' + st.levelCls }, st.level), h('span', {}, st.diagnosis.split('. ')[0] + '.'), h('span', { class: 'hero-link' }, '학업 상태 보기 →')) : null;
     const modeCard = (title, desc, icon, onClick, badge, tint) => h('button', { class: 'card mode', onClick }, h('div', { class: 'mode-icon', style: tint ? { background: tint } : null }, icon), h('div', { class: 'mode-body' }, h('b', { text: title }), h('div', { class: 'muted small', text: desc })), badge ? h('span', { class: 'tag' }, badge) : null);
     const p = Session.active ? Session.progress() : null;
     const ai = Store.geminiAvailable();
@@ -71,7 +73,7 @@ window.App = (() => {
       : null;
     U.append(el,
       h('div', { class: 'hero' }, h('h2', {}, `안녕하세요, ${user.name} 님 👋`), h('p', { class: 'muted' }, `${Store.settings.schoolName} 시뮬레이션 병원입니다. 환자를 SOAP로 평가하고 중재를 선택하세요. ${target}문항 중 ${passScore}점 이상이면 합격입니다.`),
-        h('div', { class: 'row wrap' }, best != null ? h('span', { class: 'tag soft' }, `최고 ${best}점`) : null, my.length ? h('span', { class: 'tag soft' }, `응시 ${my.length}회`) : null, my.some(r => r.pass) ? h('span', { class: 'tag ok' }, '✓ 통과') : null, h('span', { class: 'tag ' + (ai ? 'ai' : 'soft') }, ai ? '🤖 AI 튜터 켜짐' : 'AI 튜터 꺼짐'))),
+        h('div', { class: 'row wrap' }, best != null ? h('span', { class: 'tag soft' }, `최고 ${best}점`) : null, my.length ? h('span', { class: 'tag soft' }, `응시 ${my.length}회`) : null, my.some(r => r.pass) ? h('span', { class: 'tag ok' }, '✓ 통과') : null, h('span', { class: 'tag ' + (ai ? 'ai' : 'soft') }, ai ? '🤖 AI 튜터 켜짐' : 'AI 튜터 꺼짐')), statusLine),
       p ? h('div', { class: 'card resume' }, h('div', {}, h('b', { text: '진행 중인 평가가 있습니다' }), h('div', { class: 'muted small' }, `${MODE[Session.cfg.mode]} ${Session.cfg.floors.join('·')}F · ${p.answered}${isFinite(p.target) ? ' / ' + p.target : ''} 문항 답변`)), h('div', { class: 'row' }, h('button', { class: 'btn primary', onClick: () => show('hospital') }, '이어하기'), h('button', { class: 'btn ghost', onClick: async () => { if (await U.confirm('진행 중인 평가를 취소할까요? 답변 기록은 저장되지 않습니다.')) { Session.end(); renderHome(); } } }, '취소'))) : null,
       subjectBar, quick,
       h('h3', { text: '🏥 종합 모드' }), modeCard(`종합 순회 평가 (${target}문항)`, '1층 문진실부터 4층까지 모든 층을 돌며 평가합니다. 층마다 5명의 환자가 랜덤 배정됩니다.', '🏥', () => startMode('full'), '정식 평가'),
@@ -179,26 +181,36 @@ window.App = (() => {
     if (r.mode !== 'practice' && r.pass) { U.chime('pass'); U.confetti({ count: 240, origin: { x: .5, y: .35 } }); U.cheer('🏆 합격!', r.score + '점 · 축하합니다, ' + r.name + ' 치료사님', 3000); }
     show('result'); const el = $('#s-result'); el.innerHTML = ''; const pass = r.pass; const fb = Object.entries(r.byFloor || {});
     const trendCard = r.mode !== 'practice' ? h('div', { class: 'card' }, h('h3', { text: '📈 학습 성공률 변화 추이' }), h('div', { class: 'chart-host muted small' }, '불러오는 중…')) : null;
-    if (trendCard) Store.getResults(r.studentId).then(all => { const host = trendCard.querySelector('.chart-host'); host.classList.remove('muted'); PTChart.trend(host, all, r.passScore, r.id); }).catch(() => {});
+    const statusCard = r.mode !== 'practice' ? h('div', { class: 'card status-card' }, h('h3', { text: '📊 현재 학업 상태' }), h('div', { class: 'status-host muted small' }, '기록을 집계하는 중…')) : null;
     const aiBox = Store.geminiAvailable() && r.total > 0 ? h('div', { class: 'card' }, h('h3', { text: '🤖 AI 학습 코치' }), h('div', { class: 'ai-out muted' }, '결과를 분석하는 중…')) : null;
+    const runCoach = summary => { if (!aiBox) return; Gemini.coach(r, summary).then(t => { aiBox.querySelector('.ai-out').textContent = t; aiBox.querySelector('.ai-out').classList.remove('muted'); if (summary && r.mode !== 'practice') Store.getResults(r.studentId).then(all => { const st = PTProgress.stats(all, { passScore: r.passScore }); Store.setPref('aiProgress:' + r.studentId, { key: PTProgress.aiKey(st, r.studentId), text: t, at: Date.now() }); }).catch(() => {}); }).catch(e => { aiBox.querySelector('.ai-out').textContent = 'AI 코치를 불러오지 못했어요: ' + e.message; }); };
+    if (trendCard) Store.getResults(r.studentId).then(all => { const host = trendCard.querySelector('.chart-host'); host.classList.remove('muted'); PTChart.trend(host, all, r.passScore, r.id); const st = PTProgress.stats(all, { passScore: r.passScore }); const sh = statusCard.querySelector('.status-host'); sh.classList.remove('muted', 'small'); PTProgress.render(sh, st); runCoach(PTProgress.summaryText(st)); }).catch(() => runCoach(''));
+    else runCoach('');
     U.append(el,
       h('div', { class: 'result-card ' + (r.mode === 'practice' ? 'practice' : pass ? 'pass' : 'fail') }, h('div', { class: 'result-emoji' }, r.mode === 'practice' ? '🎮' : pass ? '🎉' : '💪'), h('h2', {}, r.mode === 'practice' ? '연습 종료' : pass ? '합격입니다!' : '아쉽지만 불합격이에요'),
         h('div', { class: 'score' }, `${r.score}`, h('small', {}, '점')),
         h('p', { class: 'muted' }, `${r.total}문항 중 ${r.correct}문항 정답 · 소요 ${Math.floor(r.durationSec / 60)}분 ${r.durationSec % 60}초 · 합격 기준 ${r.passScore}점` + (r.mode !== 'practice' ? ` · ${r.attempt}차 시도` : '')),
         r.mode !== 'practice' && r.total > 0 ? h('p', { class: 'tiny muted' }, Store.remote ? '결과가 서버와 이 기기에 저장되었습니다.' : '결과가 이 기기(브라우저)에 저장되었습니다.') : null),
-      aiBox, trendCard,
+      aiBox, statusCard, trendCard,
       fb.length ? h('div', { class: 'card' }, h('h3', { text: '층별 결과' }), h('div', { class: 'floor-bars' }, fb.map(([f, v]) => h('div', { class: 'fb-row' }, h('span', {}, `${f}F ${FLOOR[f].name}`), h('div', { class: 'bar' }, h('i', { style: { width: (v.correct / v.total * 100) + '%' } })), h('b', {}, `${v.correct}/${v.total}`))))) : null,
       r.wrong.length ? h('div', { class: 'card' }, h('h3', { text: `오답 노트 (${r.wrong.length})` }), r.wrong.map(w => h('details', { class: 'wrong' }, h('summary', {}, h('span', { class: 'tag soft' }, `${w.floor}F`), ' ', w.caseTitle, ' · ', w.stem), h('p', {}, h('b', {}, '내 답: '), w.chosen), h('p', {}, h('b', {}, '정답: '), w.answer), h('p', { class: 'muted' }, w.expl)))) : (r.total ? h('div', { class: 'card' }, h('p', { text: '오답이 없습니다. 완벽해요! 🏆' })) : null),
       h('div', { class: 'row wrap mt' }, h('button', { class: 'btn primary', onClick: () => startMode(r.mode, Number(String(r.floors).split('+')[0])) }, pass ? '다시 도전' : '재도전하기'), h('button', { class: 'btn ghost', onClick: () => show('home') }, '홈으로'), r.mode !== 'practice' && r.total ? h('button', { class: 'btn ghost', onClick: () => Admin.exportXlsx([r]) }, '📥 내 결과 엑셀 저장') : null));
-    if (aiBox) Gemini.coach(r).then(t => { aiBox.querySelector('.ai-out').textContent = t; aiBox.querySelector('.ai-out').classList.remove('muted'); }).catch(e => { aiBox.querySelector('.ai-out').textContent = 'AI 코치를 불러오지 못했어요: ' + e.message; });
   }
   async function renderRecords() {
     const el = $('#s-records'); el.innerHTML = ''; const my = (await Store.getResults(user.studentId)).sort((a, b) => b.date.localeCompare(a.date));
     const nonP = my.filter(r => r.mode !== 'practice');
     const trend = nonP.length ? h('div', { class: 'card' }, h('h3', { text: '📈 학습 성공률 변화 추이' }), (() => { const host = h('div', { class: 'chart-host' }); setTimeout(() => PTChart.trend(host, nonP, Store.settings.passScore || 70), 0); return host; })()) : null;
+    const st = PTProgress.stats(nonP, { passScore: Store.settings.passScore || 70 });
+    const statusCard = h('div', { class: 'card status-card' }, h('h3', { text: '📊 현재 학업 상태' }), PTProgress.render(h('div', { class: 'status-host' }), st));
+    if (st.attempts && Store.geminiAvailable()) {
+      const key = PTProgress.aiKey(st, user.studentId); const cached = Store.getPref('aiProgress:' + user.studentId, null);
+      const out = h('div', { class: 'ai-out' + (cached && cached.key === key ? '' : ' muted') }, cached && cached.key === key ? cached.text : 'AI가 누적 기록을 분석하는 중…');
+      U.append(statusCard, h('div', { class: 'ai-box' }, h('div', { class: 'ai-head' }, '🤖 AI 학업 상태 피드백'), out));
+      if (!(cached && cached.key === key)) Gemini.progressFeedback(PTProgress.summaryText(st), user.name).then(t => { out.textContent = t; out.classList.remove('muted'); Store.setPref('aiProgress:' + user.studentId, { key, text: t, at: Date.now() }); }).catch(e => { out.textContent = 'AI 피드백을 불러오지 못했어요: ' + e.message; });
+    }
     const masteredCard = h('div', { class: 'card' }, h('h3', { text: '✅ 익힌 케이스' }), h('div', { class: 'mastered-host muted small' }, '불러오는 중…'));
     Store.getMastered(user.studentId).then(list => { const host = masteredCard.querySelector('.mastered-host'); host.innerHTML = ''; host.classList.remove('muted'); U.append(host, list.length ? [h('p', { class: 'tiny muted' }, `${list.length}개 케이스가 다음 출제에서 제외됩니다. 잘못 눌렀다면 교수님께 복원을 요청하세요.`), h('div', { class: 'row wrap' }, list.map(m => h('span', { class: 'tag soft' }, `${m.floor}F ${m.caseTitle}`)))] : h('p', { class: 'muted small' }, '아직 없어요. 정답을 맞힌 뒤 "이 케이스 익혔어요"를 누르면 여기에 모입니다.')); }).catch(() => {});
-    U.append(el, h('div', { class: 'page-head' }, h('h2', { text: '📈 내 기록' }), my.length ? h('button', { class: 'btn ghost small', onClick: () => Admin.exportXlsx(my) }, '엑셀 저장') : null), trend, masteredCard,
+    U.append(el, h('div', { class: 'page-head' }, h('h2', { text: '📈 내 기록' }), my.length ? h('button', { class: 'btn ghost small', onClick: () => Admin.exportXlsx(my) }, '엑셀 저장') : null), statusCard, trend, masteredCard,
       my.length ? my.map(r => h('div', { class: 'card rec' }, h('div', { class: 'row between' }, h('b', { text: `${r.score}점` }), h('span', { class: 'tag ' + (r.pass ? 'ok' : 'bad') }, r.pass ? '합격' : '불합격')), h('div', { class: 'muted small' }, `${U.fmtDate(r.date)} · ${MODE[r.mode]} ${r.floors}F · ${r.correct}/${r.total} · ${r.attempt || 1}차`), r.wrong && r.wrong.length ? h('details', {}, h('summary', {}, `오답 ${r.wrong.length}개 보기`), r.wrong.map(w => h('p', { class: 'small' }, `• [${w.floor}F] ${w.stem} → 정답: ${w.answer}`))) : null)) : h('p', { class: 'muted' }, '아직 기록이 없습니다. 홈에서 평가를 시작해 보세요.'));
   }
   document.addEventListener('DOMContentLoaded', boot);

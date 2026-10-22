@@ -314,3 +314,12 @@ body[data-screen="hospital"] .panel .chip,body[data-screen="hospital"] .panel .c
 .fp-joy.on{background:rgba(255,255,255,.24)}
 .fp-act{position:absolute;right:18px;bottom:30px;width:68px;height:68px;border-radius:50%;border:0;background:linear-gradient(135deg,#0F7A4D,#34C27E);color:#fff;font-weight:800;font-size:.95rem;box-shadow:0 6px 18px rgba(0,0,0,.3);display:none;z-index:6;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 @media (pointer:coarse){.fp-joy,.fp-act{display:block}.dpad{display:none!important}.vr-module{bottom:150px;font-size:.78rem;max-width:64%;left:50%;transform:translateX(-50%)}body[data-screen="hospital"] .vr-tools{left:auto;right:22px;bottom:112px}.fp-hint{bottom:150px}}
+
+/* 학업 상태 */
+.status-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px}
+.status-badge{display:inline-block;border-radius:999px;padding:3px 12px;font-weight:800;font-size:.85rem;background:var(--g-soft);color:var(--g-deep)}
+.status-badge.ok{background:#dcfce7;color:#15803d}.status-badge.warn{background:#FEF3C7;color:#92400E}.status-badge.bad{background:#fee2e2;color:#b91c1c}.status-badge.soft{background:#eef2ef;color:#374151}
+.status-diag{font-size:.93rem;line-height:1.6;margin:4px 0}
+.bar.weak i{background:linear-gradient(90deg,#DC2626,#F59E0B)}
+.hero-status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:rgba(255,255,255,.14);border-radius:12px;font-size:.88rem;cursor:pointer}
+.hero-status .status-badge{background:#fff;color:var(--g-deep)}.hero-status .hero-link{margin-left:auto;font-weight:700;text-decoration:underline;opacity:.9}

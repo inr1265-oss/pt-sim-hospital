@@ -60,10 +60,15 @@ window.Gemini = (() => {
     try { const j = JSON.parse(text.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim()); return { result: String(j.result || ''), matched: Array.isArray(j.matched) ? j.matched.map(Number).filter(n => n >= 0 && n < c.O.length) : [] }; }
     catch (e) { return { result: text, matched: [] }; }
   }  // ---- 결과 화면 학습 코치 ----
-  async function coach(result) {
+  async function coach(result, statusSummary) {
     const wrong = (result.wrong || []).slice(0, 12).map(w => `- [${w.floor}F ${w.caseTitle}] ${w.stem} / 학생 답: ${w.chosen} / 정답: ${w.answer}`).join('\n');
-    const prompt = `학생의 시뮬레이션 평가 결과입니다.\n점수: ${result.score}점 (${result.total}문항 중 ${result.correct} 정답, 합격 기준 ${result.passScore}점)\n층별: ${Object.entries(result.byFloor || {}).map(([f, v]) => `${f}F ${v.correct}/${v.total}`).join(', ')}\n오답 목록:\n${wrong || '(없음)'}\n\n이 학생을 위한 학습 코칭을 작성하세요. 형식: 1) 한 줄 총평 2) 오답에서 드러난 약한 개념 2~3가지(각 1~2문장, 왜 헷갈리는지와 구분 포인트) 3) 다음 응시 전 복습 과제 3개(구체적 키워드) 4) 격려 한 줄. 전체 10문장 이내, 마크다운 기호 없이 줄바꿈으로 구분.`;
+    const prompt = `학생 ${result.name || ''}의 시뮬레이션 평가 결과입니다.\n[이번 평가] 점수: ${result.score}점 (${result.total}문항 중 ${result.correct} 정답, 합격 기준 ${result.passScore}점, ${result.attempt || 1}차 시도)\n층별: ${Object.entries(result.byFloor || {}).map(([f, v]) => `${f}F ${v.correct}/${v.total}`).join(', ')}\n오답 목록:\n${wrong || '(없음)'}\n\n[전체 학업 상태(지금까지의 모든 평가 기록 요약)]\n${statusSummary || '기록 없음(첫 평가)'}\n\n이 학생을 위한 학습 코칭을 작성하세요. 반드시 아래 네 소제목을 그대로 쓰고 각 항목은 2~3문장으로:\n■ 이번 평가 총평\n■ 현재 학업 상태 (누적 기록 기준: 추세, 강한 층과 약한 층, 반복 오답 패턴을 근거 숫자와 함께)\n■ 약한 개념과 구분 포인트 (오답에서 드러난 개념 2~3가지, 왜 헷갈리는지)\n■ 다음 응시 전 복습 과제 (구체적 키워드 3개와 권장 연습 층)\n마지막에 격려 한 줄. 마크다운 기호(#, *, -) 없이 줄바꿈으로 구분하고 전체 14문장 이내.`;
     return ask(prompt, { temperature: 0.5 });
   }
-  return { ask, explain, explainCached, followUp, patientReply, examReply, coach, generateCase };
+  // ---- 내 기록·홈: 누적 기록만으로 학업 상태 피드백 ----
+  async function progressFeedback(statusSummary, name) {
+    const prompt = `학생 ${name || ''}의 지금까지의 시뮬레이션 평가 기록 요약입니다.\n${statusSummary}\n\n이 학생의 현재 학업 상태에 대한 피드백을 작성하세요. 소제목을 그대로 쓰고 각 2~3문장:\n■ 현재 상태 진단 (수준과 추세를 숫자 근거와 함께)\n■ 강점과 약점 (층별·반복 오답 기준)\n■ 지금 해야 할 학습 (우선순위 3가지, 권장 연습 층과 키워드)\n마지막에 격려 한 줄. 마크다운 기호 없이 줄바꿈으로 구분, 전체 10문장 이내.`;
+    return ask(prompt, { temperature: 0.5 });
+  }
+  return { ask, explain, explainCached, followUp, patientReply, examReply, coach, progressFeedback, generateCase };
 })();
