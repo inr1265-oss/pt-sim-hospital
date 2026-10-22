@@ -169,10 +169,10 @@ window.Hospital3D = (() => {
     });
   }
   let glbWarned = false;
-  function applyPatientGlb(room, info, bx, bz, topY, type) {
+  function applyPatientGlb(room, info, bx, bz, topY, type, parent) {
     const urls = patientGlbUrls(info); if (!urls.length || !room.patient) return; const tryLoad = k => loadGlb(urls[k]).catch(e => { if (e.silent && k + 1 < urls.length) return tryLoad(k + 1); throw e; }); const pose = room.pose; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .3 : .36);
     tryLoad(0).then(gltf => {
-      if (!world.rooms.includes(room)) return; const model = gltf.scene; const elderlyP = !info.pediatric && Number(info.age) >= 60; normalizeHeight(model, info.pediatric ? (Number(info.age) < 2 ? .72 : 1.05) : elderlyP ? 1.5 : 1.58); const b = humanBones(model);
+      if (!world.rooms.includes(room) && !room.mini) return; const model = gltf.scene; const elderlyP = !info.pediatric && Number(info.age) >= 60; normalizeHeight(model, info.pediatric ? (Number(info.age) < 2 ? .72 : 1.05) : elderlyP ? 1.5 : 1.58); const b = humanBones(model);
       const wrap = new THREE.Group(); wrap.add(model); if (!facesPlusZ(model, b)) model.rotation.y = Math.PI; // model: 발이 원점, 정면 +z 로 통일
       armsDown(b); // T포즈 팔 내리기
       if (pose === 'sitting') {
@@ -185,8 +185,8 @@ window.Hospital3D = (() => {
         wrap.rotation.x = -Math.PI / 2; if (pose === 'prone') wrap.rotateOnWorldAxis(new THREE.Vector3(0, 0, 1), Math.PI);
         wrap.position.set(bx, topY + (pose === 'prone' ? .16 : .13), bz + .95);
       }
-      dressModel(model, 'patient'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.userData.room = room.i; o.userData.patient = true; world.clickables.push(o); } });
-      room.patient.visible = false; room.glb = wrap; G.add(wrap);
+      dressModel(model, 'patient'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.userData.room = room.i; o.userData.patient = true; if (!room.mini) world.clickables.push(o); } });
+      room.patient.visible = false; room.glb = wrap; (parent || G).add(wrap);
     }).catch(e => { if (e.silent) return; if (!glbWarned && U && U.toast) { glbWarned = true; U.toast('환자 모델 로드 실패: ' + e.message + ' (내장 환자 사용)', 'err'); } });
   }
   function loadGlbAvatar(urls, g, female) {
@@ -590,5 +590,56 @@ window.Hospital3D = (() => {
   function setFloor(f) { floor = f; P.focus = null; if (built) { buildFloor(); resetPlayer(); setHint(`${f}F 에 도착했습니다. 병실을 클릭하거나 걸어가세요.`, 2500); } }
   function focus(i) { P.focus = (i == null) ? null : i; P.orbit = 0; P.orbitPitch = 0; if (i != null) setHint(''); }
   function snapshot() { try { if (renderer && scene && camera) renderer.render(scene, camera); return canvas.toDataURL('image/png'); } catch (e) { return null; } }
-  return { mount, destroy, setFloor, move, turnHold, resize, setPlayer, focus, snapshot, goToRoom, FLOOR_META, get floor() { return floor; }, get pos() { return { x: P.x, z: P.z, yaw: P.yaw, room: curRoom(), wps: P.wps.length }; }, _debug: () => ({ camera, world, P, click, goToRoom, interact, opts, patientGlbUrl }) };
+  // ---- 차트 패널용 환자 3D 미니 뷰(드래그로 환자 주위 회전). 2D Patient.render 와 같은 API ----
+  function patientView(container, info, patient) {
+    if (!window.THREE || !container) return null;
+    let renderer; const cv = document.createElement('canvas'); cv.className = 'patient-3d';
+    try { renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); } catch (e) { return null; }
+    container.innerHTML = ''; container.append(cv);
+    const ped = !!info.pediatric; const k = ped ? .74 : 1; const posture = (patient && patient.posture) || 'supine';
+    const cap = document.createElement('div'); cap.className = 'patient-3d-cap'; cap.textContent = `${posture === 'prone' ? '엎드린자세' : '바로누운자세'}${ped ? ' · 소아' : ''}${info.region && window.Patient ? ' · 주 문제 부위: ' + Patient.label(info.region) : ''} · 드래그로 돌려보기`; container.append(cap);
+    renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; if (renderer.outputEncoding !== undefined && THREE.sRGBEncoding) renderer.outputEncoding = THREE.sRGBEncoding;
+    const sc = new THREE.Scene(); sc.add(new THREE.HemisphereLight('#fff4e4', '#8e9aab', .55)); sc.add(new THREE.AmbientLight('#ffffff', .18));
+    const dl = new THREE.DirectionalLight('#ffe7c4', .65); dl.position.set(2.5, 5, 3); dl.castShadow = true; dl.shadow.mapSize.set(1024, 1024); sc.add(dl);
+    const grp = new THREE.Group(); sc.add(grp);
+    const topY = .6; const addBox = (w, h, d, color, x, y, z, o) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color, o)); m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; grp.add(m); return m; };
+    addBox(3.4, .02, 3.4, '#C9D3DE', 0, 0, 0, { roughness: 1 }); // 바닥
+    addBox(.95, .22, 2.15, '#B8C4D2', 0, .28, 0, { metalness: .2 }); addBox(.9, .14, 2.05, '#E9EEF4', 0, .48, 0); // 침대 프레임·매트리스
+    [[-.42, 0], [.42, 0]].forEach(([x]) => { const leg = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .3, 10), mat('#94A3B8', { metalness: .6 })); leg.position.set(x, .15, -.9); grp.add(leg); const leg2 = leg.clone(); leg2.position.z = .9; grp.add(leg2); });
+    addBox(.95, .5, .06, '#CBD5E1', 0, .55, -1.1); addBox(.95, .35, .06, '#CBD5E1', 0, .48, 1.1); // 머리판·발판
+    addBox(.5, .09, .3, '#FFFFFF', 0, topY + .04, -.78, { roughness: 1 }); // 베개(머리 쪽은 -z)
+    const room = { mini: true, patient: buildPatient(info, 0, 0, topY, 'room'), pose: null, glb: null }; room.pose = room.patient.userData.pose; grp.add(room.patient);
+    if (room.pose !== 'sitting') { const bl = addBox(.84, .05, 1.1, ped ? '#FFF1C9' : '#DDEFE6', 0, topY + .09, .38, { roughness: 1 }); bl.castShadow = false; } // 담요
+    try { applyPatientGlb(room, info, 0, 0, topY, 'room', grp); } catch (e) { /* 내장 환자 사용 */ }
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.13, .022, 10, 32), new THREE.MeshStandardMaterial({ color: '#E5484D', emissive: '#E5484D', emissiveIntensity: .9, depthTest: false, transparent: true })); ring.renderOrder = 5; ring.rotation.x = Math.PI / 2; ring.visible = false; grp.add(ring);
+    const marks = new THREE.Group(); grp.add(marks);
+    const sitting = room.pose === 'sitting';
+    const tgt = sitting ? new THREE.Vector3(.4, .95, .1) : new THREE.Vector3(0, .72, -.1);
+    const cam = new THREE.PerspectiveCamera(40, 1.6, .05, 40); const orb = { th: sitting ? 1.1 : -1.5, ph: sitting ? .75 : .72, r: sitting ? 2.6 : 3.0 };
+    const regionPos = reg => { if (!reg || !window.Patient || sitting) return null; const pt = Patient.point(reg, posture, k); const z = -.72 + (pt.x - 60) / 256 * 1.67; const x = -(pt.y - 100) / 44 * .36; return new THREE.Vector3(x, topY + .34, Math.max(-.95, Math.min(.95, z))); };
+    const drag = { on: false, id: null, x: 0, y: 0 };
+    cv.addEventListener('pointerdown', e => { drag.on = true; drag.id = e.pointerId; drag.x = e.clientX; drag.y = e.clientY; try { cv.setPointerCapture(e.pointerId); } catch (x) { } e.preventDefault(); e.stopPropagation(); });
+    cv.addEventListener('pointermove', e => { if (!drag.on || e.pointerId !== drag.id) return; orb.th += (e.clientX - drag.x) * .009; orb.ph = Math.max(.2, Math.min(1.4, orb.ph + (e.clientY - drag.y) * .006)); drag.x = e.clientX; drag.y = e.clientY; e.preventDefault(); });
+    const endDrag = e => { if (!drag.on || (e && e.pointerId !== drag.id)) return; drag.on = false; try { cv.releasePointerCapture(drag.id); } catch (x) { } };
+    cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', endDrag);
+    cv.addEventListener('wheel', e => { orb.r = Math.max(1.3, Math.min(4.2, orb.r + e.deltaY * .002)); e.preventDefault(); }, { passive: false });
+    let alive = true, raf = 0, w = 0, hgt = 0, t0 = performance.now();
+    const fit = () => { const cw = container.clientWidth || 320; const ch = Math.max(190, Math.min(320, Math.round(cw * .58))); if (cw !== w || ch !== hgt) { w = cw; hgt = ch; renderer.setSize(cw, ch, false); cv.style.width = cw + 'px'; cv.style.height = ch + 'px'; cam.aspect = cw / ch; cam.updateProjectionMatrix(); } };
+    const loop = ts => { if (!alive) return; raf = requestAnimationFrame(loop); if (!container.isConnected) return; fit(); if (!w) return;
+      cam.position.set(tgt.x + Math.sin(orb.th) * Math.cos(orb.ph) * orb.r, tgt.y + Math.sin(orb.ph) * orb.r, tgt.z + Math.cos(orb.th) * Math.cos(orb.ph) * orb.r); cam.lookAt(tgt);
+      if (ring.visible) { const s = 1 + Math.sin(ts / 250) * .25; ring.scale.set(s, s, 1); }
+      if (room.glb && world.mixers) { /* 애니메이션 없음 */ }
+      renderer.render(sc, cam); };
+    raf = requestAnimationFrame(loop); const wd = setInterval(() => { if (alive && performance.now() - t0 > 400 && container.isConnected) { fit(); if (w) { cam.position.set(tgt.x + Math.sin(orb.th) * Math.cos(orb.ph) * orb.r, tgt.y + Math.sin(orb.ph) * orb.r, tgt.z + Math.cos(orb.th) * Math.cos(orb.ph) * orb.r); cam.lookAt(tgt); renderer.render(sc, cam); } } }, 120); // 숨김 탭에서도 최초 프레임
+    const api = {
+      el: cv, mode3d: true,
+      highlight(region) { const p = regionPos(region); if (!p) { ring.visible = false; return; } ring.position.copy(p); ring.visible = true; },
+      place(emoji, label, ok = true) { const p = regionPos(info.region) || new THREE.Vector3(sitting ? .4 : 0, topY + .2, sitting ? .1 : 0); const sp = sprite([{ text: (emoji || '') + (label ? '  ' + label : ''), color: ok ? '#166534' : '#B91C1C', size: 34 }], { bg: ok ? 'rgba(220,252,231,.96)' : 'rgba(254,226,226,.96)', w: 1.5 }); sp.position.set(p.x, p.y + .42, p.z); sp.scale.set(1.5, .38, 1); marks.add(sp); },
+      clearEquipment() { while (marks.children.length) marks.remove(marks.children[0]); },
+      destroy() { alive = false; cancelAnimationFrame(raf); clearInterval(wd); try { renderer.dispose(); } catch (e) { } if (cv.parentNode) cv.remove(); }
+    };
+    api.highlight(info.region);
+    return api;
+  }
+  return { mount, destroy, setFloor, move, turnHold, resize, setPlayer, focus, snapshot, goToRoom, patientView, FLOOR_META, get floor() { return floor; }, get pos() { return { x: P.x, z: P.z, yaw: P.yaw, room: curRoom(), wps: P.wps.length }; }, _debug: () => ({ camera, world, P, click, goToRoom, interact, opts, patientGlbUrl }) };
 })();

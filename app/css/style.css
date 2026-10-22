@@ -328,3 +328,10 @@ body[data-screen="hospital"] .panel .chip,body[data-screen="hospital"] .panel .c
 body[data-screen="hospital"].panel-open::after{pointer-events:none;background:rgba(7,67,42,.12)}
 body[data-screen="hospital"].panel-open .vr-tools{z-index:26}
 .vr-tools button.on{background:rgba(139,92,246,.75);transform:scale(.94)}
+
+/* 차트 패널 환자 3D 미니 뷰 */
+.patient-3d{display:block;width:100%;border-radius:14px;background:radial-gradient(ellipse at 50% 40%,#F3F7FB,#DCE4EC);touch-action:none;cursor:grab}
+.patient-3d:active{cursor:grabbing}
+.patient-3d-cap{font-size:.76rem;color:var(--muted);padding:6px 4px 0}
+body[data-screen="hospital"] .patient-3d{background:radial-gradient(ellipse at 50% 40%,#1E2A3F,#0B1220)}
+body[data-screen="hospital"] .patient-3d-cap{color:#8B98A8}

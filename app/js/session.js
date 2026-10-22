@@ -45,8 +45,10 @@ window.Session = (() => {
   function open(floor, i, onClose) {
     const room = S.rooms[floor][i]; S.currentRoom = room; const c = room.case, p = c.patient;
     const panel = $('#case-panel'); panel.innerHTML = ''; panel.classList.add('open'); document.body.classList.add('panel-open');
-    const close = () => { panel.classList.remove('open'); document.body.classList.remove('panel-open'); S.currentRoom = null; if (onClose) onClose(room); };
-    const patientBox = h('div', { class: 'patient-box' }); const pt = Patient.render(patientBox, p);
+    const close = () => { panel.classList.remove('open'); document.body.classList.remove('panel-open'); S.currentRoom = null; if (pt && pt.destroy) pt.destroy(); if (onClose) onClose(room); };
+    const patientBox = h('div', { class: 'patient-box' });
+    const info3d = { sex: p.sex, age: p.age, pediatric: !!p.pediatric, region: p.region, posture: p.posture, floor, label: p.name + ' (' + (p.ageText || p.age + '세') + ', ' + p.sex + ')' };
+    const pt = (window.Hospital3D && Hospital3D.patientView && Hospital3D.patientView(patientBox, info3d, p)) || Patient.render(patientBox, p);
     const steps = ['S', 'O', 'A', 'P']; let step = room.step || 'S';
     const qAs = room.questions.filter(x => x.q.step === 'A'), qPs = room.questions.filter(x => x.q.step === 'P');
     const allAnswered = arr => arr.every(x => x.chosen != null);
