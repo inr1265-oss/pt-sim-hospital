@@ -24,6 +24,7 @@ window.App = (() => {
     // VR 스테이지 도구
     const helpBtn = $('#vr-help'); if (helpBtn) helpBtn.onclick = showHelp;
     const shotBtn = $('#vr-shot'); if (shotBtn) shotBtn.onclick = () => { const url = engine && engine.snapshot ? engine.snapshot() : null; if (!url) return toast('캡처할 화면이 없어요.', 'err'); const a = h('a', { href: url, download: `PT_sim_${Date.now()}.png` }); document.body.append(a); a.click(); a.remove(); toast('화면을 저장했어요.', 'ok'); };
+    ['vr-turn-l', 'vr-turn-r'].forEach((id, k) => { const b = $('#' + id); if (!b) return; const dir = k ? 'right' : 'left'; const stop = () => { if (engine && engine.turnHold) engine.turnHold(dir, false); b.classList.remove('on'); }; b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (!engine) return; try { b.setPointerCapture(e.pointerId); } catch (x) { } engine.turnHold(dir, true); b.classList.add('on'); }); ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => b.addEventListener(ev, stop)); b.addEventListener('click', e => e.preventDefault()); });
     const micBtn = $('#vr-mic'); if (micBtn) micBtn.onclick = () => { const inp = [...document.querySelectorAll('#case-panel .ask-row input')].find(i => i.offsetParent); if (!inp) return toast('차트를 열고 문진(S) 또는 검사(O) 단계에서 사용하세요.', 'info'); if (!U.speechOK()) return toast('이 브라우저는 음성 인식을 지원하지 않아요 (Chrome/Edge 권장).', 'err'); U.listen(txt => { inp.value = txt; inp.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); }, on => micBtn.classList.toggle('rec', on)); };
     const s = Store.getSession(); if (s) { user = s; show('home'); } else show('auth');
   }
@@ -104,7 +105,7 @@ window.App = (() => {
   function setAvatarSex(v) { Store.setPref('avatar:' + user.studentId, v); if (engine && engine.setPlayer) engine.setPlayer(); renderHome(); }
   // 순서대로 진행: 아직 치료하지 않은 가장 앞 병실만 평가 가능
   const nextRoom = () => (Session.state.rooms[curFloor] || []).findIndex(r => !r.done);
-  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, getRoom: i => Object.assign(Session.roomInfo(curFloor, i), { next: i === nextRoom() }), player: playerInfo, patientGlb: patientGlbInfo, publicModels: PUB().publicModels !== false, onDoor: showPatientCard, onEnterRoom: enterRoom, onElevator: elevator, onFail: () => toast('3D 병원을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.', 'err') }; }
+  function hospitalOpts() { return { floor: curFloor, enabled: () => document.body.dataset.screen === 'hospital' && !document.body.classList.contains('panel-open') && !$('#modal-root').children.length, lookEnabled: () => document.body.dataset.screen === 'hospital' && !$('#modal-root').children.length, getRoom: i => Object.assign(Session.roomInfo(curFloor, i), { next: i === nextRoom() }), player: playerInfo, patientGlb: patientGlbInfo, publicModels: PUB().publicModels !== false, onDoor: showPatientCard, onEnterRoom: enterRoom, onElevator: elevator, onFail: () => toast('3D 병원을 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 새로고침하세요.', 'err') }; }
   function mountHospital() { if (engine) return; engine = Hospital3D; engine.mount($('#map3d'), hospitalOpts()); }
   // 명판 가까이에서 Enter/클릭 → 큰 환자 정보 카드
   function showPatientCard(i) {
@@ -124,7 +125,7 @@ window.App = (() => {
     const step = answered === 0 ? `${curFloor}0${nx + 1}호 명판을 찾아가 환자 정보를 확인하고, 안으로 들어가 환자를 클릭하세요.` : `환자 평가·중재 진행 중 (${answered}/${rm.questions.length} 문항)`;
     return { title: `퀘스트 ${nx + 1}/${rooms.length} · ${p.name} (${p.ageText || p.age + '세'}, ${p.sex})`, body: step };
   }
-  function showHelp() { U.modal({ title: '🎮 조작법', body: h('ul', { class: 'tips' }, h('li', {}, '이동: ↑↓ 또는 W/S 걷기, ←→ 또는 Q/E 돌기, A/D 옆걸음'), h('li', {}, '둘러보기: 화면을 드래그(터치 스와이프)'), h('li', {}, '빠른 이동: 복도 바닥이나 병실을 클릭하면 자동으로 걸어가요'), h('li', {}, '평가 시작: 침대의 환자를 클릭(또는 Enter). 병실은 01호부터 순서대로'), h('li', {}, '🎤 음성: 문진·검사 단계에서 말로 질문/지시 (Chrome/Edge)'), h('li', {}, '📷 캡처: 현재 3D 화면을 PNG로 저장'), h('li', {}, '🛗 층 이동: 상단 버튼 또는 복도 왼쪽 끝 엘리베이터')), actions: [{ label: '확인', cls: 'primary' }] }); }
+  function showHelp() { U.modal({ title: '🎮 조작법', body: h('ul', { class: 'tips' }, h('li', {}, '이동: ↑↓ 또는 W/S 걷기, ←→ 또는 Q/E 돌기, A/D 옆걸음'), h('li', {}, '둘러보기: 화면을 드래그(터치 스와이프). 왼쪽 아래 ↺ ↻ 버튼을 누르고 있으면 제자리에서 돌아요'), h('li', {}, '환자 둘러보기: 차트가 열린 상태에서도 화면 드래그·←→·↺↻로 환자 주위를 돌며 어느 쪽이든 볼 수 있어요'), h('li', {}, '빠른 이동: 복도 바닥이나 병실을 클릭하면 자동으로 걸어가요'), h('li', {}, '평가 시작: 침대의 환자를 클릭(또는 Enter). 병실은 01호부터 순서대로'), h('li', {}, '🎤 음성: 문진·검사 단계에서 말로 질문/지시 (Chrome/Edge)'), h('li', {}, '📷 캡처: 현재 3D 화면을 PNG로 저장'), h('li', {}, '🛗 층 이동: 상단 버튼 또는 복도 왼쪽 끝 엘리베이터')), actions: [{ label: '확인', cls: 'primary' }] }); }
   function enterRoom(i) {
     const info = Session.roomInfo(curFloor, i);
     if (info.status === 'empty') return toast('빈 병실입니다.', 'info');

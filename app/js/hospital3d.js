@@ -16,7 +16,7 @@ window.Hospital3D = (() => {
   const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
   let canvas = null, opts = {}, floor = 1, renderer = null, scene = null, camera = null, raf = null, running = false, lastTs = 0, watchdog = null, built = false, G = null, hint = null, cross = null;
   const world = { rooms: [], ground: null, labelKey: '', solids: [], clickables: [], walls: [], avatar: null, nameTag: null, bones: null };
-  const P = { x: 2.5, z: 1.7, yaw: Math.PI / 2, pitch: 0, bob: 0, wps: [], arrive: null, turnTo: null, impulse: null, lastInteract: 0, focus: null };
+  const P = { x: 2.5, z: 1.7, yaw: Math.PI / 2, pitch: 0, bob: 0, wps: [], arrive: null, turnTo: null, impulse: null, lastInteract: 0, focus: null, orbit: 0, orbitPitch: 0 };
   const camState = { pos: null, tgt: null };
   const keys = new Set(); const drag = { on: false, id: null, x: 0, y: 0, moved: 0 };
 
@@ -414,14 +414,17 @@ window.Hospital3D = (() => {
   }
   function resetPlayer() { P.x = 3.2; P.z = CORR_Z / 2; P.yaw = Math.PI / 2; P.pitch = 0; P.wps = []; P.arrive = null; P.turnTo = null; }
   const enabled = () => !opts.enabled || opts.enabled();
+  const lookEnabled = () => enabled() || (!!opts.lookEnabled && opts.lookEnabled());
+  function turnBy(a) { if (P.focus != null) { P.orbit += a; } else { P.yaw += a; P.turnTo = null; } }
 
   // ---------- 입력 ----------
-  function onKeyDown(e) { if (!enabled()) return; if (e.target && /input|textarea|select/i.test(e.target.tagName)) return; const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (['w', 'a', 's', 'd', 'q', 'e', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(k)) { e.preventDefault(); keys.add(k); P.wps = []; P.arrive = null; } if (e.key === 'Enter' || e.key === ' ' || k === 'f') { e.preventDefault(); interact(); } }
+  function onKeyDown(e) { if (e.target && /input|textarea|select/i.test(e.target.tagName)) return; const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; const turnKey = ['q', 'e', 'ArrowLeft', 'ArrowRight'].includes(k); if (!enabled()) { if (turnKey && lookEnabled()) { e.preventDefault(); keys.add(k); } return; } if (['w', 'a', 's', 'd', 'q', 'e', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(k)) { e.preventDefault(); keys.add(k); P.wps = []; P.arrive = null; } if (e.key === 'Enter' || e.key === ' ' || k === 'f') { e.preventDefault(); interact(); } }
   function onKeyUp(e) { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; keys.delete(k); }
-  function move(dir) { if (!enabled()) return; P.wps = []; P.arrive = null; P.impulse = { dir, t: dir === 'left' || dir === 'right' ? .18 : .35 }; }
-  function onDown(e) { if (!enabled()) return; drag.on = true; drag.id = e.pointerId; drag.x = e.clientX; drag.y = e.clientY; drag.moved = 0; try { canvas.setPointerCapture(e.pointerId); } catch (x) { } e.preventDefault(); }
-  function onMove(e) { if (!drag.on || e.pointerId !== drag.id) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY; if (drag.moved > 6) { P.yaw += dx * .006; P.pitch = Math.max(-.7, Math.min(.6, P.pitch - dy * .004)); P.turnTo = null; } }
-  function onUp(e) { if (!drag.on || e.pointerId !== drag.id) return; drag.on = false; try { canvas.releasePointerCapture(e.pointerId); } catch (x) { } if (drag.moved <= 6) click(e); }
+  function move(dir) { const turnDir = dir === 'left' || dir === 'right'; if (!enabled()) { if (turnDir && lookEnabled()) P.impulse = { dir, t: .18 }; return; } P.wps = []; P.arrive = null; P.impulse = { dir, t: turnDir ? .18 : .35 }; }
+  function turnHold(dir, on) { const k = dir === 'left' ? 'ArrowLeft' : 'ArrowRight'; if (on) { if (!lookEnabled()) return; keys.add(k); } else keys.delete(k); }
+  function onDown(e) { if (!lookEnabled()) return; drag.on = true; drag.id = e.pointerId; drag.x = e.clientX; drag.y = e.clientY; drag.moved = 0; try { canvas.setPointerCapture(e.pointerId); } catch (x) { } e.preventDefault(); }
+  function onMove(e) { if (!drag.on || e.pointerId !== drag.id) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.moved += Math.abs(dx) + Math.abs(dy); drag.x = e.clientX; drag.y = e.clientY; if (drag.moved > 6) { if (P.focus != null) { P.orbit += dx * .006; P.orbitPitch = Math.max(-.35, Math.min(.5, P.orbitPitch - dy * .004)); } else { P.yaw += dx * .006; P.pitch = Math.max(-.7, Math.min(.6, P.pitch - dy * .004)); P.turnTo = null; } } }
+  function onUp(e) { if (!drag.on || e.pointerId !== drag.id) return; drag.on = false; try { canvas.releasePointerCapture(e.pointerId); } catch (x) { } if (drag.moved <= 6 && enabled()) click(e); }
   const rc = { r: null };
   function click(e) {
     if (!built) return; if (!rc.r) rc.r = new THREE.Raycaster();
@@ -478,6 +481,7 @@ window.Hospital3D = (() => {
   const SPEED = 2.6, TURN = 2.2;
   function update(dt) {
     const en = enabled(); let moving = false;
+    if (!en && lookEnabled()) { let turn = 0; if (keys.has('ArrowLeft') || keys.has('q')) turn -= 1; if (keys.has('ArrowRight') || keys.has('e')) turn += 1; if (P.impulse) { const im = P.impulse; if (im.dir === 'left') turn -= 1; if (im.dir === 'right') turn += 1; im.t -= dt; if (im.t <= 0) P.impulse = null; } if (turn) turnBy(turn * TURN * dt); }
     if (en) {
       let f = 0, s = 0, turn = 0;
       if (keys.has('w') || keys.has('ArrowUp')) f += 1; if (keys.has('s') || keys.has('ArrowDown')) f -= 1;
@@ -485,7 +489,7 @@ window.Hospital3D = (() => {
       if (keys.has('ArrowLeft') || keys.has('q')) turn -= 1; if (keys.has('ArrowRight') || keys.has('e')) turn += 1;
       if (P.impulse) { const im = P.impulse; if (im.dir === 'up') f += 1; if (im.dir === 'down') f -= 1; if (im.dir === 'left') turn -= 1; if (im.dir === 'right') turn += 1; im.t -= dt; if (im.t <= 0) P.impulse = null; }
       if (P.axis) { f += -P.axis.y; s += P.axis.x; } // 가상 조이스틱
-      if (turn) { P.yaw += turn * TURN * dt; P.turnTo = null; }
+      if (turn) turnBy(turn * TURN * dt);
       if (f || s) {
         const fx = Math.sin(P.yaw), fz = -Math.cos(P.yaw); const rx = Math.cos(P.yaw), rz = Math.sin(P.yaw); const len = Math.hypot(f, s) || 1;
         tryMove((fx * f + rx * s) / len * SPEED * dt, (fz * f + rz * s) / len * SPEED * dt); moving = true; P.wps = []; P.arrive = null;
@@ -570,6 +574,7 @@ window.Hospital3D = (() => {
     if (P.focus != null && world.rooms[P.focus]) {
       const r = world.rooms[P.focus]; const b = r.bedCenter;
       if (r.pose === 'sitting') { wantPos = new THREE.Vector3(b.x + 1.75, 1.6, b.z + 1.2); wantTgt = new THREE.Vector3(b.x + .36, 1.05, b.z + .1); } else { wantPos = new THREE.Vector3(b.x - 1.4, 1.85, b.z + .15); wantTgt = new THREE.Vector3(b.x + .05, .8, b.z - .4); } // 머리맡 옆에서 얼굴이 보이게
+      if (P.orbit || P.orbitPitch) { const off = wantPos.clone().sub(wantTgt); const rad = Math.hypot(off.x, off.z); const ang = Math.atan2(off.x, off.z) + P.orbit; const hgt = Math.max(.6, off.y + P.orbitPitch * 1.6); wantPos = new THREE.Vector3(wantTgt.x + Math.sin(ang) * rad, wantTgt.y + hgt, wantTgt.z + Math.cos(ang) * rad); } // 환자 주위 궤도 회전(드래그·←→·↺↻)
       // 차트 패널이 오른쪽을 덮으므로 환자가 화면 왼쪽에 오도록 시선을 오른쪽으로 옮김
       const dirF = wantTgt.clone().sub(wantPos).normalize(); const right = new THREE.Vector3().crossVectors(dirF, new THREE.Vector3(0, 1, 0)).normalize(); const wide = (canvas && canvas.clientWidth > 760) ? .75 : .15; wantTgt.add(right.multiplyScalar(wide));
       if (world.walls.length) { const cr3 = world.camRc2 || (world.camRc2 = new THREE.Raycaster()); const dv = wantPos.clone().sub(wantTgt); const L = dv.length(); dv.normalize(); cr3.set(wantTgt, dv); cr3.far = L; const hit = cr3.intersectObjects(world.walls, false)[0]; if (hit) wantPos.copy(wantTgt).addScaledVector(dv, Math.max(.7, hit.distance - .2)); } // 클로즈업 카메라도 벽·파티션·커튼 안쪽에 머물게
@@ -583,7 +588,7 @@ window.Hospital3D = (() => {
     renderer.render(scene, camera);
   }
   function setFloor(f) { floor = f; P.focus = null; if (built) { buildFloor(); resetPlayer(); setHint(`${f}F 에 도착했습니다. 병실을 클릭하거나 걸어가세요.`, 2500); } }
-  function focus(i) { P.focus = (i == null) ? null : i; if (i != null) setHint(''); }
+  function focus(i) { P.focus = (i == null) ? null : i; P.orbit = 0; P.orbitPitch = 0; if (i != null) setHint(''); }
   function snapshot() { try { if (renderer && scene && camera) renderer.render(scene, camera); return canvas.toDataURL('image/png'); } catch (e) { return null; } }
-  return { mount, destroy, setFloor, move, resize, setPlayer, focus, snapshot, goToRoom, FLOOR_META, get floor() { return floor; }, get pos() { return { x: P.x, z: P.z, yaw: P.yaw, room: curRoom(), wps: P.wps.length }; }, _debug: () => ({ camera, world, P, click, goToRoom, interact, opts, patientGlbUrl }) };
+  return { mount, destroy, setFloor, move, turnHold, resize, setPlayer, focus, snapshot, goToRoom, FLOOR_META, get floor() { return floor; }, get pos() { return { x: P.x, z: P.z, yaw: P.yaw, room: curRoom(), wps: P.wps.length }; }, _debug: () => ({ camera, world, P, click, goToRoom, interact, opts, patientGlbUrl }) };
 })();

@@ -324,3 +324,7 @@ body[data-screen="hospital"] .panel .chip,body[data-screen="hospital"] .panel .c
 .bar.weak i{background:linear-gradient(90deg,#DC2626,#F59E0B)}
 .hero-status{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding:8px 12px;background:rgba(255,255,255,.14);border-radius:12px;font-size:.88rem;cursor:pointer}
 .hero-status .status-badge{background:#fff;color:var(--g-deep)}.hero-status .hero-link{margin-left:auto;font-weight:700;text-decoration:underline;opacity:.9}
+/* 차트가 열려 있어도 3D 화면 드래그로 환자 주위를 돌 수 있도록(오버레이는 시각 효과만) */
+body[data-screen="hospital"].panel-open::after{pointer-events:none;background:rgba(7,67,42,.12)}
+body[data-screen="hospital"].panel-open .vr-tools{z-index:26}
+.vr-tools button.on{background:rgba(139,92,246,.75);transform:scale(.94)}
