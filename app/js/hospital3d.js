@@ -16,9 +16,11 @@ window.Hospital3D = (() => {
   const THREE_URL = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
   let canvas = null, opts = {}, floor = 1, renderer = null, scene = null, camera = null, raf = null, running = false, lastTs = 0, watchdog = null, built = false, G = null, hint = null, cross = null;
   const world = { rooms: [], ground: null, labelKey: '', solids: [], clickables: [], walls: [], avatar: null, nameTag: null, bones: null };
-  const P = { x: 2.5, z: 1.7, yaw: Math.PI / 2, pitch: 0, bob: 0, wps: [], arrive: null, turnTo: null, impulse: null, lastInteract: 0, focus: null, orbit: 0, orbitPitch: 0 };
+  const P = { x: 2.5, z: 1.7, yaw: Math.PI / 2, pitch: 0, bob: 0, wps: [], arrive: null, turnTo: null, impulse: null, lastInteract: 0, focus: null, orbit: 0, orbitPitch: 0, heading: Math.PI / 2 };
   const camState = { pos: null, tgt: null };
   const keys = new Set(); const drag = { on: false, id: null, x: 0, y: 0, moved: 0 };
+  let view = 'tp'; // 'tp' 3인칭(어깨너머, 몸이 이동 방향으로 자연스럽게 돎) | 'fp' 1인칭(눈높이)
+  function setView(v) { view = v === 'tp' ? 'tp' : 'fp'; if (world.avatar) world.avatar.visible = view === 'tp'; if (world.nameTag) world.nameTag.visible = view === 'tp'; }
 
   function loadThree() { return window.THREE ? Promise.resolve() : new Promise((res, rej) => { const s = document.createElement('script'); s.src = THREE_URL; s.onload = res; s.onerror = () => rej(new Error('Three.js 로드 실패(인터넷 연결 확인)')); document.head.append(s); }); }
   const mat = (color, o = {}) => new THREE.MeshStandardMaterial(Object.assign({ color, roughness: .88, metalness: .04 }, o));
@@ -124,6 +126,17 @@ window.Hospital3D = (() => {
     bone.quaternion.premultiply(pq).premultiply(q).premultiply(pqi); bone.userData.baseQ = bone.quaternion.clone();
   }
   const isDescendant = (node, anc) => { let p = node.parent; while (p) { if (p === anc) return true; p = p.parent; } return false; };
+  // 다리를 한 방향(dir, 월드)으로 곧게 폄. IK 리그(발이 뿌리뼈 자식)는 정강이를 축 기준으로 돌리고 발을 발목 위치로 옮김
+  function straightenLegs(b, model, dir) {
+    [[b.lUp, b.lLeg, b.lFoot], [b.rUp, b.rLeg, b.rFoot]].forEach(([up, leg, foot]) => {
+      if (!up || !leg) return; model.updateMatrixWorld(true);
+      const k0 = new THREE.Vector3(), f0 = new THREE.Vector3(); leg.getWorldPosition(k0); if (foot) foot.getWorldPosition(f0);
+      const shinLen = foot ? Math.max(.2, k0.distanceTo(f0)) : .45; const child = !!foot && isDescendant(foot, leg);
+      aimBone(up, leg, dir);
+      if (child) aimBone(leg, foot, dir);
+      else { aimAxis(leg, dir); if (foot) { model.updateMatrixWorld(true); const k = new THREE.Vector3(); leg.getWorldPosition(k); foot.parent.updateWorldMatrix(true, false); foot.position.copy(foot.parent.worldToLocal(k.clone().addScaledVector(dir, shinLen))); } }
+    });
+  }
   function armsDown(b) { // T포즈/A포즈 팔을 몸 옆으로 내림(약간 바깥쪽)
     const hips = new THREE.Vector3(); if (b.hips) b.hips.getWorldPosition(hips);
     [[b.lArm, b.lFore, b.lHand], [b.rArm, b.rFore, b.rHand]].forEach(([arm, fore, hand]) => {
@@ -201,6 +214,7 @@ window.Hospital3D = (() => {
       } else {
         wrap.rotation.x = -Math.PI / 2; if (pose === 'prone') wrap.rotateOnWorldAxis(new THREE.Vector3(0, 0, 1), Math.PI);
         wrap.position.set(bx, topY + (pose === 'prone' ? .16 : .13), bz + .95);
+        wrap.updateWorldMatrix(true, false); const wq = new THREE.Quaternion(); wrap.getWorldQuaternion(wq); straightenLegs(b, model, new THREE.Vector3(0, -1, 0).applyQuaternion(wq).normalize()); // 누운 자세: 무릎을 펴고 발을 발목 위치로(IK 리그는 기본 자세가 무릎이 굽어 있음)
       }
       dressModel(model, 'patient'); model.traverse(o => { if (o.isMesh) { o.castShadow = true; o.frustumCulled = false; o.userData.room = room.i; o.userData.patient = true; if (!room.mini) world.clickables.push(o); } });
       room.patient.visible = false; room.glb = wrap; (parent || G).add(wrap);
@@ -429,7 +443,7 @@ window.Hospital3D = (() => {
     if (!renderer || !canvas || !canvas.parentElement) return; const rect = canvas.parentElement.getBoundingClientRect(); if (!rect.width) return;
     const w = rect.width; const top = rect.top + (window.scrollY || 0); const avail = window.innerHeight - top - 28; const h = Math.max(340, Math.min(Math.round(w * .66), avail > 340 ? avail : 9999)); renderer.setSize(w, h, false); canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; camera.aspect = w / h; camera.updateProjectionMatrix();
   }
-  function resetPlayer() { P.x = 3.2; P.z = CORR_Z / 2; P.yaw = Math.PI / 2; P.pitch = 0; P.wps = []; P.arrive = null; P.turnTo = null; }
+  function resetPlayer() { P.x = 3.2; P.z = CORR_Z / 2; P.yaw = Math.PI / 2; P.heading = P.yaw; P.pitch = 0; P.wps = []; P.arrive = null; P.turnTo = null; }
   const enabled = () => !opts.enabled || opts.enabled();
   const lookEnabled = () => enabled() || (!!opts.lookEnabled && opts.lookEnabled());
   function turnBy(a) { if (P.focus != null) { P.orbit += a; } else { P.yaw += a; P.turnTo = null; } }
@@ -509,14 +523,16 @@ window.Hospital3D = (() => {
       if (turn) turnBy(turn * TURN * dt);
       if (f || s) {
         const fx = Math.sin(P.yaw), fz = -Math.cos(P.yaw); const rx = Math.cos(P.yaw), rz = Math.sin(P.yaw); const len = Math.hypot(f, s) || 1;
-        tryMove((fx * f + rx * s) / len * SPEED * dt, (fz * f + rz * s) / len * SPEED * dt); moving = true; P.wps = []; P.arrive = null;
+        const mx = (fx * f + rx * s) / len, mz = (fz * f + rz * s) / len; tryMove(mx * SPEED * dt, mz * SPEED * dt); moving = true; P.wps = []; P.arrive = null;
+        P.heading = lerpAngle(P.heading, Math.atan2(mx, -mz), Math.min(1, dt * 10)); // 몸은 이동 방향으로 부드럽게 돎(카메라와 분리)
       } else if (P.wps.length) {
         const t = P.wps[0]; const dx = t.x - P.x, dz = t.z - P.z; const d = Math.hypot(dx, dz);
         if (d < .2) { P.wps.shift(); if (!P.wps.length) arrived(); }
-        else { const st = Math.min(d, SPEED * dt); tryMove(dx / d * st, dz / d * st); moving = true; const want = Math.atan2(dx, -dz); P.yaw = lerpAngle(P.yaw, want, Math.min(1, dt * 6)); P.pitch *= (1 - Math.min(1, dt * 3)); }
+        else { const st = Math.min(d, SPEED * dt); tryMove(dx / d * st, dz / d * st); moving = true; const want = Math.atan2(dx, -dz); P.yaw = lerpAngle(P.yaw, want, Math.min(1, dt * 6)); P.heading = lerpAngle(P.heading, want, Math.min(1, dt * 10)); P.pitch *= (1 - Math.min(1, dt * 3)); }
       }
     }
     if (P.turnTo) { P.yaw = lerpAngle(P.yaw, P.turnTo.yaw, Math.min(1, dt * 4)); P.pitch += (P.turnTo.pitch - P.pitch) * Math.min(1, dt * 4); if (Math.abs(angDiff(P.yaw, P.turnTo.yaw)) < .03) { const a = P.turnTo.after; P.turnTo = null; if (a) a(); } }
+    if (!moving) P.heading = lerpAngle(P.heading, P.yaw, Math.min(1, dt * 7)); // 제자리 회전: 몸이 카메라 방향으로 따라 돎
     P.bob = moving ? P.bob + dt * 9 : 0;
     // 안내 문구
     if (!P.wps.length && !P.turnTo) { const it = interactable(); if (it) setHint(it.type === 'room' ? '👆 환자를 클릭(또는 Enter) : 평가 시작' : it.type === 'door' ? '🚪 명판 클릭(또는 Enter) : 환자 정보 보기' : '🛗 Enter(또는 탭) : 층 이동'); else if (hint && hint.classList.contains('show') && (hint.textContent.startsWith('👆') || hint.textContent.startsWith('🛗') || hint.textContent.startsWith('🚪'))) setHint(''); }
@@ -563,7 +579,7 @@ window.Hospital3D = (() => {
     // 아바타(3인칭) + 걷기 애니메이션
     const av = world.avatar; const moving = P.bob > 0;
     if (av) {
-      av.position.set(P.x, 0, P.z); av.rotation.y = -P.yaw;
+      av.position.set(P.x, 0, P.z); av.rotation.y = -P.heading;
       const sw = moving ? Math.sin(P.bob) : 0; const legs = av.userData.legs || [], arms = av.userData.arms || [];
       legs.forEach((lg, i) => lg.rotation.x = sw * .6 * (i ? -1 : 1)); arms.forEach((ar, i) => ar.rotation.x = sw * .5 * (i ? 1 : -1));
       av.position.y = moving ? Math.abs(Math.sin(P.bob)) * .03 : 0;
@@ -587,6 +603,8 @@ window.Hospital3D = (() => {
     const t = dist / DIST; let wantPos = new THREE.Vector3(head.x + (want.x - head.x) * t, head.y + (want.y - head.y) * t, head.z + (want.z - head.z) * t);
     if (inRoom) wantPos.z = Math.min(wantPos.z, -.45); // 카메라가 문 밖(복도)으로 빠져 벽 너머를 보지 않도록
     const tSide = inRoom ? .7 : 1.05; let wantTgt = new THREE.Vector3(P.x + fx0 * 1.8 + rx0 * tSide, (inRoom ? .95 : 1.25) + P.pitch * 1.4, P.z + fz0 * 1.8 + rz0 * tSide);
+    const fp = view === 'fp' && P.focus == null;
+    if (fp) { const eyeY = 1.55 + (P.bob ? Math.sin(P.bob) * .02 : 0); wantPos = new THREE.Vector3(P.x, eyeY, P.z); const cp = Math.cos(P.pitch); wantTgt = new THREE.Vector3(P.x + fx0 * cp * 2, eyeY + Math.sin(P.pitch) * 2, P.z + fz0 * cp * 2); } // 1인칭: 눈높이 카메라, 시선은 yaw/pitch 그대로
     // 평가·중재 중: 침대 옆 클로즈업(차트 패널이 열려 있는 동안)
     if (P.focus != null && world.rooms[P.focus]) {
       const r = world.rooms[P.focus]; const b = r.bedCenter;
@@ -597,10 +615,10 @@ window.Hospital3D = (() => {
       if (world.walls.length) { const cr3 = world.camRc2 || (world.camRc2 = new THREE.Raycaster()); const dv = wantPos.clone().sub(wantTgt); const L = dv.length(); dv.normalize(); cr3.set(wantTgt, dv); cr3.far = L; const hit = cr3.intersectObjects(world.walls, false)[0]; if (hit) wantPos.copy(wantTgt).addScaledVector(dv, Math.max(.7, hit.distance - .2)); } // 클로즈업 카메라도 벽·파티션·커튼 안쪽에 머물게
       if (world.avatar) world.avatar.visible = false;
     }
-    else if (world.avatar) world.avatar.visible = wantPos.distanceTo(head) > 1.3;
-    if (world.nameTag) world.nameTag.visible = !inRoom && P.focus == null; // 치료실 안에서는 이름표가 시야를 가리므로 숨김 // 벽에 막혀 카메라가 바짝 붙으면 아바타가 시야를 가리므로 숨김
+    else if (world.avatar) world.avatar.visible = view === 'tp' && wantPos.distanceTo(head) > 1.3;
+    if (world.nameTag) world.nameTag.visible = view === 'tp' && !inRoom && P.focus == null; // 치료실 안에서는 이름표가 시야를 가리므로 숨김 // 벽에 막혀 카메라가 바짝 붙으면 아바타가 시야를 가리므로 숨김
     if (!camState.pos) { camState.pos = wantPos.clone(); camState.tgt = wantTgt.clone(); }
-    const k = Math.min(1, (lastTs ? 0.016 : 0.016) * 5); camState.pos.lerp(wantPos, P.focus != null ? .08 : .35); camState.tgt.lerp(wantTgt, P.focus != null ? .08 : .35);
+    const k = Math.min(1, (lastTs ? 0.016 : 0.016) * 5); const kk = P.focus != null ? .08 : fp ? 1 : .35; camState.pos.lerp(wantPos, kk); camState.tgt.lerp(wantTgt, kk);
     camera.position.copy(camState.pos); camera.lookAt(camState.tgt);
     renderer.render(scene, camera);
   }
@@ -658,5 +676,5 @@ window.Hospital3D = (() => {
     api.highlight(info.region);
     return api;
   }
-  return { mount, destroy, setFloor, move, turnHold, resize, setPlayer, focus, snapshot, goToRoom, patientView, FLOOR_META, get floor() { return floor; }, get pos() { return { x: P.x, z: P.z, yaw: P.yaw, room: curRoom(), wps: P.wps.length }; }, _debug: () => ({ camera, world, P, click, goToRoom, interact, opts, patientGlbUrl }) };
+  return { mount, destroy, setFloor, move, turnHold, resize, setPlayer, focus, snapshot, goToRoom, patientView, setView, get view() { return view; }, FLOOR_META, get floor() { return floor; }, get pos() { return { x: P.x, z: P.z, yaw: P.yaw, room: curRoom(), wps: P.wps.length }; }, _debug: () => ({ camera, world, P, click, goToRoom, interact, opts, patientGlbUrl }) };
 })();
