@@ -22,6 +22,16 @@ jobs:
       - uses: actions/configure-pages@v5
         with:
           enablement: true
+      - name: Inject Gemini key from repository secret (GEMINI_KEY)
+        env:
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+        run: |
+          if [ -n "$GEMINI_KEY" ]; then
+            sed -i "s|geminiKey: \"\"|geminiKey: \"$GEMINI_KEY\"|" app/js/config.js
+            echo "Gemini key injected"
+          else
+            echo "GEMINI_KEY secret not set; AI stays off on the static site"
+          fi
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app
