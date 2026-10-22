@@ -307,7 +307,7 @@ window.Hospital3D = (() => {
     const matt = box(1.0, .18, 2.0, '#1E3A8A', bx, .5, bz, { roughness: .85 }); matt.userData.room = i; world.clickables.push(matt);
     const sheet = box(1.0, .03, 1.6, '#FFFFFF', bx, .6, bz - .2, { roughness: .95 }); sheet.userData.room = i; world.clickables.push(sheet);
     box(1.0, .55, .08, '#AFBBCB', bx, .62, bz - 1.04); box(.62, .12, .4, '#F8FAFC', bx, .65, bz - .75);
-    [[-.52, 0], [.52, 0]].forEach(([dx]) => box(.04, .25, 1.2, '#B8C2D0', bx + dx, .7, bz - .2, { metalness: .5 }));
+    /* 침대 옆 난간 제거: 앉은 환자의 다리를 가림(사용자 요청) */
     room.blanket = box(.96, .14, 1.15, '#ffffff', bx, .66, bz + .38, { map: patternTexture('#FFFFFF', meta.accent, 'stripes'), roughness: .95 }); room.blanket.userData.room = i; world.clickables.push(room.blanket);
     box(.5, .55, .45, '#F8FAFC', bx - 1.1, .28, bz - 1.25, {}, true); box(.4, .03, .35, '#94A3B8', bx - 1.1, .36, bz - 1.25);
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, 1.4, 8), mat('#64748B', { metalness: .6 })); pole.position.set(bx + 1.0, .7, bz - .5); G.add(pole); box(.55, .38, .06, '#1F2937', bx + 1.0, 1.5, bz - .5, { emissive: '#34D399', emissiveIntensity: .45 });
@@ -435,7 +435,7 @@ window.Hospital3D = (() => {
   function turnBy(a) { if (P.focus != null) { P.orbit += a; } else { P.yaw += a; P.turnTo = null; } }
 
   // ---------- 입력 ----------
-  function onKeyDown(e) { if (e.target && /input|textarea|select/i.test(e.target.tagName)) return; const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; const turnKey = ['q', 'e', 'ArrowLeft', 'ArrowRight'].includes(k); if (!enabled()) { if (turnKey && lookEnabled()) { e.preventDefault(); keys.add(k); } return; } if (['w', 'a', 's', 'd', 'q', 'e', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(k)) { e.preventDefault(); keys.add(k); P.wps = []; P.arrive = null; } if (e.key === 'Enter' || e.key === ' ' || k === 'f') { e.preventDefault(); interact(); } }
+  function onKeyDown(e) { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; const turnKey = ['q', 'e', 'ArrowLeft', 'ArrowRight'].includes(k); if (e.target && /input|textarea|select/i.test(e.target.tagName)) { if ((k === 'ArrowLeft' || k === 'ArrowRight') && !String(e.target.value || '').length && lookEnabled()) { e.preventDefault(); keys.add(k); } return; } /* 차트 입력칸이 비어 있을 때는 ←→ 로 회전 */ if (!enabled()) { if (turnKey && lookEnabled()) { e.preventDefault(); keys.add(k); } return; } if (['w', 'a', 's', 'd', 'q', 'e', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' '].includes(k)) { e.preventDefault(); keys.add(k); P.wps = []; P.arrive = null; } if (e.key === 'Enter' || e.key === ' ' || k === 'f') { e.preventDefault(); interact(); } }
   function onKeyUp(e) { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; keys.delete(k); }
   function move(dir) { const turnDir = dir === 'left' || dir === 'right'; if (!enabled()) { if (turnDir && lookEnabled()) P.impulse = { dir, t: .18 }; return; } P.wps = []; P.arrive = null; P.impulse = { dir, t: turnDir ? .18 : .35 }; }
   function turnHold(dir, on) { const k = dir === 'left' ? 'ArrowLeft' : 'ArrowRight'; if (on) { if (!lookEnabled()) return; keys.add(k); } else keys.delete(k); }
