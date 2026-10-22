@@ -29,6 +29,8 @@ jobs:
           if [ -n "$GEMINI_KEY" ]; then
             sed -i "s|geminiKey: \"\"|geminiKey: \"$GEMINI_KEY\"|" app/js/config.js
             echo "Gemini key injected"
+            # 배포마다 config.js 캐시 무효화(학생 브라우저가 새 설정을 바로 받도록)
+            sed -i "s|js/config.js?v=[0-9A-Za-z]*|js/config.js?v=run${GITHUB_RUN_NUMBER}|" app/index.html
           else
             echo "GEMINI_KEY secret not set; AI stays off on the static site"
           fi
