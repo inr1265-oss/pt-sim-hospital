@@ -115,6 +115,15 @@ window.Hospital3D = (() => {
     const pq = new THREE.Quaternion(); if (bone.parent) bone.parent.getWorldQuaternion(pq); const pqi = pq.clone().invert();
     bone.quaternion.premultiply(pq).premultiply(q).premultiply(pqi); bone.userData.baseQ = bone.quaternion.clone();
   }
+  // 자식뼈가 없는 뼈(IK 리그의 정강이 등): 뼈의 길이 축(기본 로컬 +y)을 원하는 월드 방향으로 돌림
+  function aimAxis(bone, dirWorld, localAxis) {
+    bone.updateWorldMatrix(true, false); const wq = new THREE.Quaternion(); bone.getWorldQuaternion(wq);
+    const cur = (localAxis || new THREE.Vector3(0, 1, 0)).clone().applyQuaternion(wq).normalize(); if (cur.lengthSq() < 1e-8) return;
+    const q = new THREE.Quaternion().setFromUnitVectors(cur, dirWorld.clone().normalize());
+    const pq = new THREE.Quaternion(); if (bone.parent) bone.parent.getWorldQuaternion(pq); const pqi = pq.clone().invert();
+    bone.quaternion.premultiply(pq).premultiply(q).premultiply(pqi); bone.userData.baseQ = bone.quaternion.clone();
+  }
+  const isDescendant = (node, anc) => { let p = node.parent; while (p) { if (p === anc) return true; p = p.parent; } return false; };
   function armsDown(b) { // T포즈/A포즈 팔을 몸 옆으로 내림(약간 바깥쪽)
     const hips = new THREE.Vector3(); if (b.hips) b.hips.getWorldPosition(hips);
     [[b.lArm, b.lFore, b.lHand], [b.rArm, b.rFore, b.rHand]].forEach(([arm, fore, hand]) => {
@@ -170,14 +179,22 @@ window.Hospital3D = (() => {
   }
   let glbWarned = false;
   function applyPatientGlb(room, info, bx, bz, topY, type, parent) {
-    const urls = patientGlbUrls(info); if (!urls.length || !room.patient) return; const tryLoad = k => loadGlb(urls[k]).catch(e => { if (e.silent && k + 1 < urls.length) return tryLoad(k + 1); throw e; }); const pose = room.pose; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .3 : .36);
+    const urls = patientGlbUrls(info); if (!urls.length || !room.patient) return; const tryLoad = k => loadGlb(urls[k]).catch(e => { if (e.silent && k + 1 < urls.length) return tryLoad(k + 1); throw e; }); const pose = room.pose; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .44 : .5);
     tryLoad(0).then(gltf => {
       if (!world.rooms.includes(room) && !room.mini) return; const model = gltf.scene; const elderlyP = !info.pediatric && Number(info.age) >= 60; normalizeHeight(model, info.pediatric ? (Number(info.age) < 2 ? .72 : 1.05) : elderlyP ? 1.5 : 1.58); const b = humanBones(model);
       const wrap = new THREE.Group(); wrap.add(model); if (!facesPlusZ(model, b)) model.rotation.y = Math.PI; // model: 발이 원점, 정면 +z 로 통일
       armsDown(b); // T포즈 팔 내리기
       if (pose === 'sitting') {
         if (b.lUp && b.rUp && b.hips) {
-          const fwd = new THREE.Vector3(0, 0, 1); [[b.lUp, b.lLeg], [b.rUp, b.rLeg]].forEach(([up, leg]) => { if (up && leg) aimBone(up, leg, fwd); }); [[b.lLeg, b.lFoot], [b.rLeg, b.rFoot]].forEach(([leg, foot]) => { if (leg && foot) aimBone(leg, foot, new THREE.Vector3(0, -1, 0)); }); // 넙다리 앞으로, 종아리 아래로
+          const fwd = new THREE.Vector3(0, 0, 1), down = new THREE.Vector3(0, -1, 0);
+          [[b.lUp, b.lLeg, b.lFoot], [b.rUp, b.rLeg, b.rFoot]].forEach(([up, leg, foot]) => {
+            if (!up || !leg) return; model.updateMatrixWorld(true);
+            const kneeRest = new THREE.Vector3(), footRest = new THREE.Vector3(); leg.getWorldPosition(kneeRest); if (foot) foot.getWorldPosition(footRest);
+            const shinLen = foot ? Math.max(.2, kneeRest.distanceTo(footRest)) : .45; const footIsChild = !!foot && isDescendant(foot, leg);
+            aimBone(up, leg, fwd); // 넙다리 앞으로
+            if (footIsChild) aimBone(leg, foot, down); // 종아리 아래로(발이 정강이의 자식인 일반 리그)
+            else { aimAxis(leg, down); if (foot) { model.updateMatrixWorld(true); const knee = new THREE.Vector3(); leg.getWorldPosition(knee); const ankle = knee.clone().addScaledVector(down, shinLen); foot.parent.updateWorldMatrix(true, false); foot.position.copy(foot.parent.worldToLocal(ankle)); } } // IK 리그(Quaternius 등): 발이 뿌리뼈에 붙어 있어 발목 위치로 직접 옮김
+          });
           model.updateMatrixWorld(true); const hp = new THREE.Vector3(); b.hips.getWorldPosition(hp);
           wrap.position.set(bx + edgeX, topY + .06 - hp.y, bz + .1); wrap.rotation.y = Math.PI / 2;
         } else { wrap.position.set(bx + edgeX + .5, 0, bz + .1); wrap.rotation.y = Math.PI / 2; } // 리깅이 없으면 침대 옆에 서 있음
@@ -317,7 +334,7 @@ window.Hospital3D = (() => {
   }
   function buildPatient(info, bx, bz, topY, type) {
     const ped = !!info.pediatric, female = info.sex === '여', age = Number(info.age) || 30, elderly = !ped && age >= 60; const pose = posture(info);
-    const s = ped ? (age < 2 ? .6 : .78) : 1; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .3 : .36);
+    const s = ped ? (age < 2 ? .6 : .78) : 1; const edgeX = type === 'plinth' ? 1.2 : (type === 'bay' ? .44 : .5);
     const skin = mat('#F6D3B5'); const hairM = mat(ped ? (female ? '#6B3F2A' : '#4A3024') : elderly ? '#CBD0D8' : female ? '#3B2418' : '#2B1B12');
     const gown = new THREE.MeshStandardMaterial({ map: patternTexture(ped ? (female ? '#FFD9E7' : '#D6E8FF') : elderly ? (female ? '#EADFF5' : '#E3EAF0') : (female ? '#F6DCE4' : '#DCEAF2'), ped ? (female ? '#F472B6' : '#60A5FA') : elderly ? (female ? '#B79BD8' : '#93A7BA') : (female ? '#C47A95' : '#7E9BB5'), 'dots'), roughness: .9 }); const pants = mat(ped ? (female ? '#F9A8D4' : '#93C5FD') : '#6B7B94');
     const g = new THREE.Group(); g.userData.pose = pose;
@@ -613,9 +630,9 @@ window.Hospital3D = (() => {
     try { applyPatientGlb(room, info, 0, 0, topY, 'room', grp); } catch (e) { /* 내장 환자 사용 */ }
     const ring = new THREE.Mesh(new THREE.TorusGeometry(.13, .022, 10, 32), new THREE.MeshStandardMaterial({ color: '#E5484D', emissive: '#E5484D', emissiveIntensity: .9, depthTest: false, transparent: true })); ring.renderOrder = 5; ring.rotation.x = Math.PI / 2; ring.visible = false; grp.add(ring);
     const marks = new THREE.Group(); grp.add(marks);
-    const sitting = room.pose === 'sitting';
+    const sitting = room.pose === 'sitting'; if (sitting) cap.textContent = cap.textContent.replace('바로누운자세', '앉은자세');
     const tgt = sitting ? new THREE.Vector3(.4, .95, .1) : new THREE.Vector3(0, .72, -.1);
-    const cam = new THREE.PerspectiveCamera(40, 1.6, .05, 40); const orb = { th: sitting ? 1.1 : -1.5, ph: sitting ? .75 : .72, r: sitting ? 2.6 : 3.0 };
+    const cam = new THREE.PerspectiveCamera(40, 1.6, .05, 40); const orb = { th: sitting ? 1.35 : -1.5, ph: sitting ? .5 : .72, r: sitting ? 3.0 : 3.0 };
     const regionPos = reg => { if (!reg || !window.Patient || sitting) return null; const pt = Patient.point(reg, posture, k); const z = -.72 + (pt.x - 60) / 256 * 1.67; const x = -(pt.y - 100) / 44 * .36; return new THREE.Vector3(x, topY + .34, Math.max(-.95, Math.min(.95, z))); };
     const drag = { on: false, id: null, x: 0, y: 0 };
     cv.addEventListener('pointerdown', e => { drag.on = true; drag.id = e.pointerId; drag.x = e.clientX; drag.y = e.clientY; try { cv.setPointerCapture(e.pointerId); } catch (x) { } e.preventDefault(); e.stopPropagation(); });
