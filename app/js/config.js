@@ -5,7 +5,7 @@
 window.PT_CONFIG = {
   // 구글 시트 연동(권장): Apps Script 웹 앱 주소(https://script.google.com/macros/s/…/exec). 넣으면 모든 기기의 가입·승인·성적이 한 시트에 모입니다.
   // 만드는 법: 프로젝트 루트의 「구글시트_연동_가이드.md」. 비우면 각 기기 브라우저에만 저장됩니다.
-  sheetApi: "",
+  sheetApi: "https://script.google.com/macros/s/AKfycbyBS55_Ho7cjm1KAsS8TKlF_hgIF1CeIOwp757_fwiExc0R5fnzW-oYaQtuvpOqMmUBvA/exec",
   geminiKey: "",
   geminiModel: "gemini-2.5-flash",
   // 3D 사람 모델(GLB). 아래 기본 파일명으로 app/assets/models/ 에 넣기만 하면 자동 적용되고,
