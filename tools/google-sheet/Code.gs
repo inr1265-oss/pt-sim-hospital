@@ -15,6 +15,7 @@
 const ADMIN_PIN = '1234';            // 처음 관리자 PIN(숫자 4~8자리). 앱에서 PIN 을 바꾸면 그 값이 우선합니다.
 const GEMINI_API_KEY = '';           // (선택) Google AI Studio 무료 키. 여기에 두면 학생 브라우저에 키가 보이지 않습니다.
 const GEMINI_MODEL = 'gemini-2.5-flash';
+const SHEET_ID = '';                 // script.google.com 에서 따로 만든 경우에만: 시트 주소의 /d/ 와 /edit 사이 긴 문자열. 시트의 '확장 프로그램 → Apps Script' 로 만들었다면 비워 두세요.
 const TZ = 'Asia/Seoul';
 
 const SHEETS = {
@@ -109,7 +110,7 @@ function route_(q) {
   }
 
   // ---------- 관리자 전용 ----------
-  if (p === '/admin/verify' && m === 'POST') return String(b.pin) === adminPin_() ? { ok: true, sheetUrl: SpreadsheetApp.getActiveSpreadsheet().getUrl() } : fail(401, 'PIN 이 올바르지 않습니다.');
+  if (p === '/admin/verify' && m === 'POST') return String(b.pin) === adminPin_() ? { ok: true, sheetUrl: book_().getUrl() } : fail(401, 'PIN 이 올바르지 않습니다.');
   if (!isAdmin) return fail(403, '관리자 권한이 필요합니다.');
 
   if (p === '/users' && m === 'GET') return { users: users_().map(u => { delete u.pinHash; delete u._row; return u; }) };
@@ -140,9 +141,14 @@ function route_(q) {
 }
 
 // ---------- 도우미 ----------
+function book_() {
+  const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('연결된 시트가 없습니다. Code.gs 맨 위 SHEET_ID 에 시트 ID 를 넣으세요.');
+  return ss;
+}
 function out_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
 function sheet_(k) {
-  const d = SHEETS[k]; const ss = SpreadsheetApp.getActiveSpreadsheet(); let sh = ss.getSheetByName(d.name);
+  const d = SHEETS[k]; const ss = book_(); let sh = ss.getSheetByName(d.name);
   if (!sh) { sh = ss.insertSheet(d.name); sh.appendRow(d.head); sh.setFrozenRows(1); }
   return sh;
 }
