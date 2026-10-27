@@ -15,7 +15,7 @@
 const ADMIN_PIN = '1234';            // 처음 관리자 PIN(숫자 4~8자리). 앱에서 PIN 을 바꾸면 그 값이 우선합니다.
 const GEMINI_API_KEY = '';           // (선택) Google AI Studio 무료 키. 여기에 두면 학생 브라우저에 키가 보이지 않습니다.
 const GEMINI_MODEL = 'gemini-2.5-flash';
-const SHEET_ID = '';                 // script.google.com 에서 따로 만든 경우에만: 시트 주소의 /d/ 와 /edit 사이 긴 문자열. 시트의 '확장 프로그램 → Apps Script' 로 만들었다면 비워 두세요.
+const SHEET_ID = '';                 // 보통은 비워 두세요. 비어 있으면 연결된 시트를 쓰고, 없으면 'PT 시뮬레이션 병원 DB' 시트를 자동으로 만듭니다(setup 실행 시 실행 로그에 주소 표시).
 const TZ = 'Asia/Seoul';
 
 const SHEETS = {
@@ -41,7 +41,7 @@ function doPost(e) {
   finally { try { lock.releaseLock(); } catch (x) { /* ignore */ } }
 }
 /** 처음 한 번 실행: 시트 탭을 만들고 권한을 허용받습니다. */
-function setup() { Object.keys(SHEETS).forEach(k => sheet_(k)); return '준비 완료: ' + Object.keys(SHEETS).map(k => SHEETS[k].name).join(', '); }
+function setup() { Object.keys(SHEETS).forEach(k => sheet_(k)); const msg = '준비 완료 — 시트 주소: ' + book_().getUrl() + ' (탭: ' + Object.keys(SHEETS).map(k => SHEETS[k].name).join(', ') + ')'; Logger.log(msg); return msg; }
 
 // ---------- 라우터 ----------
 function route_(q) {
@@ -142,9 +142,11 @@ function route_(q) {
 
 // ---------- 도우미 ----------
 function book_() {
-  const ss = SHEET_ID ? SpreadsheetApp.openById(SHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
-  if (!ss) throw new Error('연결된 시트가 없습니다. Code.gs 맨 위 SHEET_ID 에 시트 ID 를 넣으세요.');
-  return ss;
+  if (SHEET_ID) { try { return SpreadsheetApp.openById(SHEET_ID); } catch (x) { throw new Error('SHEET_ID 값이 올바른 시트 ID 가 아닙니다. 비워 두면 시트를 자동으로 만듭니다.'); } }
+  const props = PropertiesService.getScriptProperties(); const saved = props.getProperty('SHEET_ID');
+  if (saved) return SpreadsheetApp.openById(saved);
+  const active = SpreadsheetApp.getActiveSpreadsheet(); if (active) return active;
+  const ss = SpreadsheetApp.create('PT 시뮬레이션 병원 DB'); props.setProperty('SHEET_ID', ss.getId()); return ss;   // 시트 없이 만든 스크립트: 시트를 자동 생성
 }
 function out_(obj) { return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON); }
 function sheet_(k) {
