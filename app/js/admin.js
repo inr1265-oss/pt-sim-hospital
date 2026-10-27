@@ -12,7 +12,7 @@ window.Admin = (() => {
     const tabs = ['승인 관리', '성적 관리', '학생 기록', '설정', '데이터 · AI 케이스']; let cur = 0;
     const tabBar = h('div', { class: 'tabs' }, tabs.map((t, i) => h('button', { class: 'tab' + (i === cur ? ' active' : ''), onClick: () => { cur = i; draw(); } }, t)));
     const body = h('div', { class: 'admin-body' });
-    U.append(container, h('div', { class: 'page-head' }, h('h2', { text: '🔑 관리자(교수) 콘솔' }), h('div', { class: 'row' }, h('span', { class: 'tag soft' }, Store.remote ? '서버 모드' : '로컬(이 브라우저) 모드'), h('button', { class: 'btn ghost small', onClick: () => { Store.adminPin = null; App.show(backTarget()); } }, '나가기'))), tabBar, body);
+    U.append(container, h('div', { class: 'page-head' }, h('h2', { text: '🔑 관리자(교수) 콘솔' }), h('div', { class: 'row' }, h('span', { class: 'tag soft' }, Store.backend === 'sheet' ? '구글 시트 모드' : Store.remote ? '서버 모드' : '로컬(이 브라우저) 모드'), h('button', { class: 'btn ghost small', onClick: () => { Store.adminPin = null; App.show(backTarget()); } }, '나가기'))), tabBar, body);
     async function draw() { tabBar.querySelectorAll('.tab').forEach((b, i) => b.classList.toggle('active', i === cur)); body.innerHTML = ''; await [users, results, students, settings, data][cur](body); }
     draw();
   }
@@ -43,7 +43,7 @@ window.Admin = (() => {
     U.append(body, h('div', { class: 'stat-row' }, stat('응시 건수', all.length), stat('합격', all.filter(r => r.pass).length), stat('응시 학생', new Set(all.map(r => r.studentId)).size), stat('평균 점수', avg)),
       h('div', { class: 'row wrap mt' }, h('button', { class: 'btn primary', onClick: () => exportXlsx(all) }, '📥 엑셀(.xlsx) 다운로드'), h('button', { class: 'btn ghost', onClick: () => exportCsv(all) }, 'CSV 다운로드'),
         window.showDirectoryPicker ? h('button', { class: 'btn ghost', onClick: () => pickFolder().then(() => results(clear(body))) }, autosaveState.handle ? '📁 자동 저장 폴더 변경' : '📁 결과 자동 저장 폴더 지정') : null,
-        Store.remote ? h('a', { class: 'btn ghost', href: '/api/results.csv?pin=' + encodeURIComponent(Store.adminPin), target: '_blank' }, '서버 CSV 열기') : null),
+        Store.backend === 'server' ? h('a', { class: 'btn ghost', href: '/api/results.csv?pin=' + encodeURIComponent(Store.adminPin), target: '_blank' }, '서버 CSV 열기') : Store.sheetUrl ? h('a', { class: 'btn ghost', href: Store.sheetUrl, target: '_blank', rel: 'noopener' }, '📊 구글 시트 열기') : null),
       autosaveState.handle ? h('p', { class: 'tiny muted' }, `자동 저장 중: ${autosaveState.name}/PT_시뮬레이션_성적.xlsx (새 결과가 생길 때마다 갱신)`) : h('p', { class: 'tiny muted' }, 'PC의 Chrome/Edge에서 폴더를 지정하면 결과가 생길 때마다 그 폴더의 엑셀 파일이 자동 갱신됩니다. ' + (Store.remote ? '서버 모드에서는 server/data/results.csv 에도 항상 기록됩니다.' : '')),
       h('div', { class: 'table-wrap mt' }, all.length ? tbl : h('p', { class: 'muted' }, '아직 결과가 없습니다.')));
   }
@@ -96,7 +96,7 @@ window.Admin = (() => {
     U.append(body, h('div', { class: 'form wide' },
       field('questionTarget', '출제 문항 수', 'number', '기본 40문항. 종합 순회에서는 층마다 배정되는 병실 수를 자동 계산합니다.'), field('questionsPerStep', '환자당 단계별 문항 수 (A·P 각각)', 'number', '기본 3 → 환자 1명당 최대 6문항(평가 3 + 중재 3). 1~5'), field('passScore', '합격 점수', 'number', '기본 70점'), field('schoolName', '학과 표시명'), field('appName', '앱 이름'),
       h('h3', { class: 'mt' }, '🤖 Gemini AI 연동'),
-      h('p', { class: 'muted small' }, Store.remote ? (Store.geminiRemote ? '서버(server/config.json)의 API 키를 사용 중입니다. 아래 키는 비워 두세요.' : '서버의 config.json 에 geminiApiKey 를 넣으면 키가 브라우저에 노출되지 않습니다(권장). 아래 키는 이 브라우저에서만 쓰입니다.') : 'Google AI Studio(aistudio.google.com)에서 무료 API 키를 발급받아 입력하세요. 키는 이 브라우저(localStorage)에만 저장됩니다. 학생 배포 시에는 Node 서버 프록시 사용을 권장합니다.'),
+      h('p', { class: 'muted small' }, Store.backend === 'sheet' ? (Store.geminiRemote ? '구글 시트 스크립트(Code.gs 의 GEMINI_API_KEY)의 키를 사용 중입니다. 아래 키는 비워 두세요.' : '구글 시트 스크립트(Code.gs)의 GEMINI_API_KEY 에 키를 넣으면 학생 브라우저에 키가 노출되지 않습니다(권장). 아래 키는 이 브라우저에서만 쓰입니다.') : Store.remote ? (Store.geminiRemote ? '서버(server/config.json)의 API 키를 사용 중입니다. 아래 키는 비워 두세요.' : '서버의 config.json 에 geminiApiKey 를 넣으면 키가 브라우저에 노출되지 않습니다(권장). 아래 키는 이 브라우저에서만 쓰입니다.') : 'Google AI Studio(aistudio.google.com)에서 무료 API 키를 발급받아 입력하세요. 키는 이 브라우저(localStorage)에만 저장됩니다. 학생 배포 시에는 Node 서버 프록시 사용을 권장합니다.'),
       field('geminiKey', 'Gemini API 키', 'password'), field('geminiModel', '모델 이름', 'text', '예: gemini-2.5-flash (무료 할당량 모델). 최신 모델명은 Google AI Studio에서 확인하세요.'),
       h('label', { class: 'field' }, h('span', { text: 'AI 튜터 동작 방식' }), f.aiMode = h('select', { class: 'input' }, [['wrong', '오답일 때 자동 해설 (권장 · 호출 절약)'], ['always', '정답·오답 모두 자동 해설'], ['manual', '버튼을 눌렀을 때만'], ['off', 'AI 기능 끄기']].map(([v, t]) => h('option', { value: v, text: t, selected: (s.aiMode || 'wrong') === v }))), h('small', { class: 'muted' }, '문진의 AI 환자, 후속 질문, 결과 화면 학습 코치는 AI가 켜져 있으면 항상 사용할 수 있습니다. 무료 키는 분당·일일 호출 한도가 있으니 학생 수가 많으면 "오답일 때"를 권장합니다.')),
       (window.PT_CONFIG && window.PT_CONFIG.geminiKey) ? h('p', { class: 'tiny muted' }, '공개 배포용 키(app/js/config.js)가 설정되어 있어 모든 학생이 AI를 쓸 수 있습니다. 위 키를 입력하면 이 브라우저에서는 그 키가 우선합니다.') : h('p', { class: 'tiny muted' }, 'GitHub Pages 등 정적 배포에서 모든 학생에게 AI를 켜려면 app/js/config.js 의 geminiKey 에 "웹사이트 제한"을 건 키를 넣으세요.'),
@@ -110,7 +110,7 @@ window.Admin = (() => {
       h('p', { class: 'muted small' }, '환자도 GLB로 교체할 수 있습니다. 저장소의 app/assets/models/ 에 파일을 넣고 상대 경로(예: assets/models/patient_f.glb)를 적거나 공개 URL을 넣으세요. Mixamo 리깅(Hips·LeftUpLeg 등)이 있으면 누움·엎드림·앉음 자세를 자동으로 잡고, 리깅이 없으면 누운 자세로만 눕힙니다. 자세한 제작 절차는 app/assets/models/README.md 를 보세요.'),
       field('patientGlbF', '성인 여자 환자 GLB'), field('patientGlbM', '성인 남자 환자 GLB'), field('patientGlbChild', '소아 환자 GLB (공통)'), field('patientGlbChildF', '여자아이 환자 GLB'), field('patientGlbChildM', '남자아이 환자 GLB'), field('patientGlbElderF', '노인 여자 환자 GLB (비우면 성인 여자 사용)'), field('patientGlbElderM', '노인 남자 환자 GLB (비우면 성인 남자 사용)'),
       h('h3', { class: 'mt' }, '📤 GLB 파일 업로드 (서버 모드)'),
-      Store.remote ? (() => {
+      Store.backend === 'server' ? (() => {
         const slot = h('select', { class: 'input', style: { maxWidth: '260px' } }, [['patientGlbF', '성인 여자 환자'], ['patientGlbM', '성인 남자 환자'], ['patientGlbChild', '소아 환자(공통)'], ['patientGlbChildF', '여자아이 환자'], ['patientGlbChildM', '남자아이 환자'], ['patientGlbElderF', '노인 여자 환자'], ['patientGlbElderM', '노인 남자 환자'], ['avatarGlbF', '여자 치료사'], ['avatarGlbM', '남자 치료사']].map(([v, t]) => h('option', { value: v, text: t })));
         const fileIn = h('input', { class: 'input', type: 'file', accept: '.glb,.gltf', style: { maxWidth: '320px' } }); const out = h('div', { class: 'tiny muted' });
         const btn = h('button', { class: 'btn primary', onClick: async () => {

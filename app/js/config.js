@@ -3,6 +3,9 @@
 //   배포 주소(예: https://inr1265-oss.github.io/*)만 허용하도록 제한하세요. 그래야 다른 사이트에서 키를 도용할 수 없습니다.
 // 비워 두면 AI 기능은 서버 모드(server/config.json) 또는 관리자 콘솔에서 입력한 키가 있을 때만 켜집니다.
 window.PT_CONFIG = {
+  // 구글 시트 연동(권장): Apps Script 웹 앱 주소(https://script.google.com/macros/s/…/exec). 넣으면 모든 기기의 가입·승인·성적이 한 시트에 모입니다.
+  // 만드는 법: 프로젝트 루트의 「구글시트_연동_가이드.md」. 비우면 각 기기 브라우저에만 저장됩니다.
+  sheetApi: "",
   geminiKey: "",
   geminiModel: "gemini-2.5-flash",
   // 3D 사람 모델(GLB). 아래 기본 파일명으로 app/assets/models/ 에 넣기만 하면 자동 적용되고,

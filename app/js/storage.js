@@ -7,9 +7,17 @@ window.Store = (() => {
   };
   const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbChildF: '', patientGlbChildM: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
   const PUB = () => window.PT_CONFIG || {};
-  const S = { remote: false, geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null };
+  const S = { remote: false, backend: 'local', geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null, sheetUrl: null };
+  const SHEET = () => String(PUB().sheetApi || '').trim(); // 구글 시트(Apps Script 웹 앱) 주소 — app/js/config.js
 
   async function api(path, opts = {}) {
+    if (S.backend === 'sheet' || opts.sheet) { // 구글 시트: 사전 요청(CORS preflight)이 없도록 text/plain POST 하나로 모든 호출을 보냄
+      const u = new URL(path, 'http://x'); const query = {}; u.searchParams.forEach((v, k) => { query[k] = v; });
+      const res = await fetch(SHEET(), { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ path: u.pathname, method: opts.method || 'GET', query, body: opts.body || null, pin: S.adminPin || null }) });
+      const data = await res.json().catch(() => ({ error: '구글 시트 응답을 읽지 못했습니다.' }));
+      if (!res.ok || data.error) throw new Error(data.error || ('구글 시트 오류 ' + res.status));
+      return data;
+    }
     const headers = { 'Content-Type': 'application/json' };
     if (S.adminPin) headers['x-admin-pin'] = S.adminPin;
     const res = await fetch('/api' + path, { method: opts.method || 'GET', headers, body: opts.body ? JSON.stringify(opts.body) : undefined });
@@ -20,10 +28,15 @@ window.Store = (() => {
 
   S.init = async function () {
     S.settings = { ...DEFAULTS, ...LS.get('settings', {}) };
+    if (SHEET()) { // 구글 시트 모드: 모든 기기의 가입·성적이 한 시트에 모임
+      try { const j = await api('/health', { sheet: true }); if (j.ok) { S.remote = true; S.backend = 'sheet'; S.geminiRemote = !!j.geminiEnabled; Object.assign(S.settings, j.settings || {}); } }
+      catch (e) { console.warn('[Store] 구글 시트 연결 실패', e); setTimeout(() => U.toast('구글 시트에 연결하지 못했습니다. 지금은 이 기기에만 저장됩니다. (' + e.message + ')', 'err'), 1200); }
+      return S;
+    }
     if (location.protocol.startsWith('http')) {
       try {
         const r = await fetch('/api/health', { cache: 'no-store' });
-        if (r.ok) { const j = await r.json(); if (j.ok) { S.remote = true; S.geminiRemote = !!j.geminiEnabled; Object.assign(S.settings, j.settings || {}); } }
+        if (r.ok) { const j = await r.json(); if (j.ok) { S.remote = true; S.backend = 'server'; S.geminiRemote = !!j.geminiEnabled; Object.assign(S.settings, j.settings || {}); } }
       } catch (e) { /* 정적 호스팅 → 로컬 모드 */ }
     }
     return S;
@@ -72,7 +85,7 @@ window.Store = (() => {
 
   // ---- 관리자 ----
   S.adminVerify = async function (pin) {
-    if (S.remote) { try { await api('/admin/verify', { method: 'POST', body: { pin } }); S.adminPin = pin; return true; } catch (e) { return false; } }
+    if (S.remote) { try { const j = await api('/admin/verify', { method: 'POST', body: { pin } }); S.adminPin = pin; S.sheetUrl = (j && j.sheetUrl) || null; return true; } catch (e) { return false; } }
     const hash = await U.sha256('admin:' + pin);
     if (!S.settings.adminPinHash) { await S.saveSettings({ adminPinHash: hash }); S.adminPin = pin; return 'created'; }
     if (S.settings.adminPinHash === hash) { S.adminPin = pin; return true; }
@@ -141,7 +154,7 @@ window.Store = (() => {
 
   // ---- 3D 모델 파일 업로드(서버 모드): app/assets/models/ 에 저장 ----
   S.uploadAsset = async function (file, name) {
-    if (!S.remote) throw new Error('서버 모드에서만 업로드할 수 있습니다. 정적 배포에서는 app/assets/models/ 폴더에 파일을 넣고 경로를 입력하세요.');
+    if (S.backend !== 'server') throw new Error('PC 서버 모드에서만 업로드할 수 있습니다. 정적 배포에서는 app/assets/models/ 폴더에 파일을 넣고 경로를 입력하세요.');
     const headers = { 'Content-Type': 'application/octet-stream' }; if (S.adminPin) headers['x-admin-pin'] = S.adminPin;
     const res = await fetch('/api/asset?name=' + encodeURIComponent(name), { method: 'PUT', headers, body: file });
     const data = await res.json().catch(() => ({})); if (!res.ok) throw new Error(data.error || ('업로드 실패 ' + res.status)); return data.path;
