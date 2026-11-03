@@ -25,7 +25,7 @@ const SHEETS = {
   settings: { name: '설정', head: ['항목', '값'] }
 };
 const SETTING_KEYS = ['questionTarget', 'questionsPerStep', 'passScore', 'schoolName', 'appName', 'geminiModel', 'aiMode', 'avatarGlbF', 'avatarGlbM', 'patientGlbF', 'patientGlbM', 'patientGlbChild', 'patientGlbChildF', 'patientGlbChildM', 'patientGlbElderF', 'patientGlbElderM'];
-const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 60, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
 const MODE_LABEL = { full: '종합 순회', floor: '단일 층', practice: '연습' };
 
 // ---------- 진입점 ----------
