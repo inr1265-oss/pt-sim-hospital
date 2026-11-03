@@ -81,7 +81,7 @@ window.Admin = (() => {
     const draw = () => {
       host.innerHTML = ''; if (!cur) return U.append(host, h('p', { class: 'muted' }, '학생이 없습니다.'));
       const my = results.filter(r => r.studentId === cur); const ms = mastered.filter(m => m.studentId === cur);
-      const chart = h('div', { class: 'chart-host' }); setTimeout(() => PTChart.trend(chart, my, Store.settings.passScore || 70), 0);
+      const chart = h('div', { class: 'chart-host' }); setTimeout(() => PTChart.trend(chart, my, Store.settings.passScore || 60), 0);
       U.append(host, h('h3', { text: `📈 ${nameOf(cur)} 학생 성공률 추이 (${my.length}회 응시)` }), my.length ? chart : h('p', { class: 'muted small' }, '응시 기록이 없습니다.'),
         h('h3', { class: 'mt', text: `✅ 익힌 케이스 (${ms.length})` }), h('p', { class: 'tiny muted' }, '학생이 정답을 맞힌 뒤 "익혔어요"로 표시한 케이스입니다. 잘못 눌렀다면 삭제하세요. 삭제하면 그 학생에게 다시 출제됩니다.'),
         ms.length ? ms.map(m => h('div', { class: 'list-row' }, h('div', {}, h('b', { text: `${m.floor}F ${m.caseTitle}` }), h('div', { class: 'tiny muted' }, `${m.caseId} · ${fmtDate(m.at)}`)),
@@ -94,7 +94,7 @@ window.Admin = (() => {
     const s = Store.settings; const f = {};
     const field = (k, label, type = 'text', hint = '') => h('label', { class: 'field' }, h('span', { text: label }), f[k] = h('input', { class: 'input', type, value: s[k] == null ? '' : s[k] }), hint ? h('small', { class: 'muted' }, hint) : null);
     U.append(body, h('div', { class: 'form wide' },
-      field('questionTarget', '출제 문항 수', 'number', '기본 40문항. 종합 순회에서는 층마다 배정되는 병실 수를 자동 계산합니다.'), field('questionsPerStep', '환자당 단계별 문항 수 (A·P 각각)', 'number', '기본 3 → 환자 1명당 최대 6문항(평가 3 + 중재 3). 1~5'), field('passScore', '합격 점수', 'number', '기본 70점'), field('schoolName', '학과 표시명'), field('appName', '앱 이름'),
+      field('questionTarget', '출제 문항 수', 'number', '기본 40문항. 종합 순회에서는 층마다 배정되는 병실 수를 자동 계산합니다.'), field('questionsPerStep', '환자당 단계별 문항 수 (A·P 각각)', 'number', '기본 3 → 환자 1명당 최대 6문항(평가 3 + 중재 3). 1~5'), field('passScore', '합격 점수', 'number', '기본 60점'), field('schoolName', '학과 표시명'), field('appName', '앱 이름'),
       h('h3', { class: 'mt' }, '🤖 Gemini AI 연동'),
       h('p', { class: 'muted small' }, Store.backend === 'sheet' ? (Store.geminiRemote ? '구글 시트 스크립트(Code.gs 의 GEMINI_API_KEY)의 키를 사용 중입니다. 아래 키는 비워 두세요.' : '구글 시트 스크립트(Code.gs)의 GEMINI_API_KEY 에 키를 넣으면 학생 브라우저에 키가 노출되지 않습니다(권장). 아래 키는 이 브라우저에서만 쓰입니다.') : Store.remote ? (Store.geminiRemote ? '서버(server/config.json)의 API 키를 사용 중입니다. 아래 키는 비워 두세요.' : '서버의 config.json 에 geminiApiKey 를 넣으면 키가 브라우저에 노출되지 않습니다(권장). 아래 키는 이 브라우저에서만 쓰입니다.') : 'Google AI Studio(aistudio.google.com)에서 무료 API 키를 발급받아 입력하세요. 키는 이 브라우저(localStorage)에만 저장됩니다. 학생 배포 시에는 Node 서버 프록시 사용을 권장합니다.'),
       field('geminiKey', 'Gemini API 키', 'password'), field('geminiModel', '모델 이름', 'text', '예: gemini-2.5-flash (무료 할당량 모델). 최신 모델명은 Google AI Studio에서 확인하세요.'),

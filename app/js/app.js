@@ -55,7 +55,7 @@ window.App = (() => {
 
   async function renderHome() {
     const el = $('#s-home'); el.innerHTML = '';
-    const target = Store.settings.questionTarget || 40, passScore = Store.settings.passScore || 70;
+    const target = Store.settings.questionTarget || 40, passScore = Store.settings.passScore || 60;
     const my = (await Store.getResults(user.studentId)).filter(r => r.mode !== 'practice').sort((a, b) => b.date.localeCompare(a.date));
     const best = my.length ? Math.max(...my.map(r => r.score)) : null;
     const subject = getSubject();
@@ -95,7 +95,7 @@ window.App = (() => {
     const ai = Store.geminiAvailable();
     U.modal({ title: mode === 'practice' ? '🎮 연습 모드' : '📝 평가 시작', body: h('div', {},
       h('p', {}, mode === 'full' ? `1층 문진실부터 시작합니다. 층마다 ${rpf}개 병실의 환자를 치료한 뒤 층 이동으로 다음 층에 가세요.` : mode === 'floor' ? `${floor}F ${FLOOR[floor].name}에서 ${target}문항이 출제됩니다. 환자 ${rpf}명을 모두 치료하면 새 환자가 배정됩니다.` : `${curFloor}F에서 시작합니다. 층 이동 버튼으로 어느 층이든 자유롭게 오갈 수 있고 점수는 저장되지 않습니다.`),
-      h('ul', { class: 'tips' }, h('li', {}, `각 환자당 최대 ${perStep * 2}문항(평가 ${perStep} + 중재 ${perStep}), 즉시 채점·해설`), h('li', {}, '🧊 1인칭 3D 병원: ↑↓(W/S) 걷기, ←→ 돌기, 화면 드래그로 둘러보기. 병실을 클릭하면 침대까지 자동 이동'), h('li', {}, '👆 침대의 환자를 클릭하면 평가 시작 · 병실은 01호부터 순서대로 진행'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 70}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
+      h('ul', { class: 'tips' }, h('li', {}, `각 환자당 최대 ${perStep * 2}문항(평가 ${perStep} + 중재 ${perStep}), 즉시 채점·해설`), h('li', {}, '🧊 1인칭 3D 병원: ↑↓(W/S) 걷기, ←→ 돌기, 화면 드래그로 둘러보기. 병실을 클릭하면 침대까지 자동 이동'), h('li', {}, '👆 침대의 환자를 클릭하면 평가 시작 · 병실은 01호부터 순서대로 진행'), ai ? h('li', {}, '🤖 AI 튜터가 해설을 보충하고, 문진에서 환자에게 직접 질문할 수 있어요') : null, h('li', {}, `합격 ${Store.settings.passScore || 60}점 이상 · 실패 시 재도전 가능`))), actions: [{ label: '시작!', cls: 'primary' }] });
   }
   // 치료사 캐릭터(성별·외부 GLB)
   const avatarSex = () => Store.getPref('avatar:' + (user ? user.studentId : 'anon'), null) || (user && user.sex) || '여'; // 본인이 고른 값(가입 시 저장) 우선, 없으면 계정 성별
@@ -200,8 +200,8 @@ window.App = (() => {
   async function renderRecords() {
     const el = $('#s-records'); el.innerHTML = ''; const my = (await Store.getResults(user.studentId)).sort((a, b) => b.date.localeCompare(a.date));
     const nonP = my.filter(r => r.mode !== 'practice');
-    const trend = nonP.length ? h('div', { class: 'card' }, h('h3', { text: '📈 학습 성공률 변화 추이' }), (() => { const host = h('div', { class: 'chart-host' }); setTimeout(() => PTChart.trend(host, nonP, Store.settings.passScore || 70), 0); return host; })()) : null;
-    const st = PTProgress.stats(nonP, { passScore: Store.settings.passScore || 70 });
+    const trend = nonP.length ? h('div', { class: 'card' }, h('h3', { text: '📈 학습 성공률 변화 추이' }), (() => { const host = h('div', { class: 'chart-host' }); setTimeout(() => PTChart.trend(host, nonP, Store.settings.passScore || 60), 0); return host; })()) : null;
+    const st = PTProgress.stats(nonP, { passScore: Store.settings.passScore || 60 });
     const statusCard = h('div', { class: 'card status-card' }, h('h3', { text: '📊 현재 학업 상태' }), PTProgress.render(h('div', { class: 'status-host' }), st));
     if (st.attempts && Store.geminiAvailable()) {
       const key = PTProgress.aiKey(st, user.studentId); const cached = Store.getPref('aiProgress:' + user.studentId, null);

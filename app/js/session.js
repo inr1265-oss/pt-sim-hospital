@@ -220,7 +220,7 @@ window.Session = (() => {
   }
   function result() {
     const total = S.answers.length, correct = S.answers.filter(a => a.correct).length;
-    const score = total ? Math.round(correct / total * 1000) / 10 : 0; const passScore = Store.settings.passScore || 70;
+    const score = total ? Math.round(correct / total * 1000) / 10 : 0; const passScore = Store.settings.passScore || 60;
     const byFloor = {}; S.answers.forEach(a => { byFloor[a.floor] = byFloor[a.floor] || { total: 0, correct: 0 }; byFloor[a.floor].total++; if (a.correct) byFloor[a.floor].correct++; });
     return { id: U.uid(), studentId: S.cfg.user.studentId, name: S.cfg.user.name, mode: S.cfg.mode, floors: S.cfg.floors.join('+'), date: new Date().toISOString(), total, correct, score, pass: score >= passScore, passScore, durationSec: Math.round((Date.now() - S.startedAt) / 1000), byFloor, attempt: S.cfg.attempt || 1,
       wrong: S.answers.filter(a => !a.correct).map(a => ({ floor: a.floor, caseTitle: a.caseTitle, stem: a.stem, chosen: a.chosen, answer: a.answer, expl: a.expl })) };

@@ -4,7 +4,7 @@ window.PTChart = (() => {
   const pad = n => String(n).padStart(2, '0');
   const shortDate = d => { const x = new Date(d); return `${pad(x.getMonth() + 1)}.${pad(x.getDate())}`; };
   const MODE = { full: '종합', floor: '층별', practice: '연습' };
-  function trend(container, results, passScore = 70, highlightId = null) {
+  function trend(container, results, passScore = 60, highlightId = null) {
     container.innerHTML = '';
     const data = (results || []).filter(r => r && typeof r.score === 'number' && r.mode !== 'practice').slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
     if (!data.length) { U.append(container, h('p', { class: 'muted small' }, '아직 평가 기록이 없어요. 첫 평가를 마치면 추이가 그려집니다.')); return; }

@@ -5,7 +5,7 @@ window.Store = (() => {
     set(k, v) { try { localStorage.setItem('pt:' + k, JSON.stringify(v)); } catch (e) { console.warn('localStorage', e); } },
     del(k) { try { localStorage.removeItem('pt:' + k); } catch (e) { /* ignore */ } }
   };
-  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 70, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbChildF: '', patientGlbChildM: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 60, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbChildF: '', patientGlbChildM: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
   const PUB = () => window.PT_CONFIG || {};
   const S = { remote: false, backend: 'local', geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null, sheetUrl: null };
   const SHEET = () => String(PUB().sheetApi || '').trim(); // 구글 시트(Apps Script 웹 앱) 주소 — app/js/config.js
@@ -28,6 +28,7 @@ window.Store = (() => {
 
   S.init = async function () {
     S.settings = { ...DEFAULTS, ...LS.get('settings', {}) };
+    if (S.settings.passScore === 70 && !S.settings.passV) { S.settings.passScore = 60; S.settings.passV = 2; LS.set('settings', S.settings); } // 2026-11: 합격 기준 70 → 60 (이전에 저장된 기본값 1회 이전)
     if (SHEET()) { // 구글 시트 모드: 모든 기기의 가입·성적이 한 시트에 모임
       try { const j = await api('/health', { sheet: true }); if (j.ok) { S.remote = true; S.backend = 'sheet'; S.geminiRemote = !!j.geminiEnabled; Object.assign(S.settings, j.settings || {}); } }
       catch (e) { console.warn('[Store] 구글 시트 연결 실패', e); setTimeout(() => U.toast('구글 시트에 연결하지 못했습니다. 지금은 이 기기에만 저장됩니다. (' + e.message + ')', 'err'), 1200); }

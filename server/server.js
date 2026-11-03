@@ -5,7 +5,7 @@ const ROOT = path.join(__dirname, '..', 'app');
 const DATA = path.join(__dirname, 'data');
 fs.mkdirSync(DATA, { recursive: true });
 const CONFIG_PATH = path.join(__dirname, 'config.json');
-const config = Object.assign({ port: 8787, adminPin: '1234', geminiApiKey: '', geminiModel: 'gemini-2.5-flash', questionTarget: 40, passScore: 70, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' },
+const config = Object.assign({ port: 8787, adminPin: '1234', geminiApiKey: '', geminiModel: 'gemini-2.5-flash', questionTarget: 40, passScore: 60, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' },
   fs.existsSync(CONFIG_PATH) ? JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) : {});
 const file = n => path.join(DATA, n);
 const readJson = (n, d) => { try { return JSON.parse(fs.readFileSync(file(n), 'utf8')); } catch (e) { return d; } };

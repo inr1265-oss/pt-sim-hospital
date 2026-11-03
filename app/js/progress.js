@@ -4,7 +4,7 @@ window.PTProgress = (() => {
   const FLOOR_NAMES = { 1: '임상의사결정', 2: '운동치료', 3: '소아물리치료', 4: '물리적인자치료' };
   const r1 = v => Math.round(v * 10) / 10;
   function stats(results, opts = {}) {
-    const passScore = opts.passScore || 70;
+    const passScore = opts.passScore || 60;
     const data = (results || []).filter(r => r && r.mode !== 'practice' && typeof r.score === 'number').slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
     const n = data.length;
     if (!n) return { attempts: 0, passScore, level: '시작 전', levelCls: 'soft', diagnosis: '아직 평가 기록이 없어요. 첫 평가를 마치면 학업 상태를 진단해 드립니다.', floors: [], weakFloors: [], repeated: [], trend: null };
