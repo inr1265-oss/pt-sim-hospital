@@ -7,7 +7,8 @@ window.PT_CONFIG = {
   // 만드는 법: 프로젝트 루트의 「구글시트_연동_가이드.md」. 비우면 각 기기 브라우저에만 저장됩니다.
   sheetApi: "https://script.google.com/macros/s/AKfycbyBS55_Ho7cjm1KAsS8TKlF_hgIF1CeIOwp757_fwiExc0R5fnzW-oYaQtuvpOqMmUBvA/exec",
   geminiKey: "",
-  geminiModel: "gemini-2.5-flash",
+  // 키를 쉼표로 여러 개 넣으면(서로 다른 Google Cloud 프로젝트의 키) 무료 한도가 키 수만큼 늘어납니다. 예: "AQ.aaa,AQ.bbb"
+  geminiModel: "gemini-2.5-flash-lite",
   // 3D 사람 모델(GLB). 아래 기본 파일명으로 app/assets/models/ 에 넣기만 하면 자동 적용되고,
   // 파일이 없으면 조용히 내장 캐릭터를 씁니다. 공개 URL(예: Ready Player Me "https://models.readyplayer.me/<id>.glb")도 가능.
   avatarGlbF: "assets/models/therapist_f.glb",

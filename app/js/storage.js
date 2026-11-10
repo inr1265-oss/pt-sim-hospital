@@ -5,7 +5,7 @@ window.Store = (() => {
     set(k, v) { try { localStorage.setItem('pt:' + k, JSON.stringify(v)); } catch (e) { console.warn('localStorage', e); } },
     del(k) { try { localStorage.removeItem('pt:' + k); } catch (e) { /* ignore */ } }
   };
-  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 60, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbChildF: '', patientGlbChildM: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 60, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbChildF: '', patientGlbChildM: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash-lite', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
   const PUB = () => window.PT_CONFIG || {};
   const S = { remote: false, backend: 'local', geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null, sheetUrl: null };
   const SHEET = () => String(PUB().sheetApi || '').trim(); // 구글 시트(Apps Script 웹 앱) 주소 — app/js/config.js
@@ -133,26 +133,40 @@ window.Store = (() => {
   S.setPref = (k, v) => LS.set('pref:' + k, v);
 
   // ---- Gemini ----
-  S.geminiAvailable = () => S.settings.aiMode !== 'off' && ((S.remote && S.geminiRemote) || !!S.settings.geminiKey || !!PUB().geminiKey);
+  // ---- Gemini (무료 한도 대응: 키 여러 개 순환, 모델 대체, 한도 초과 시 10분 쉬기) ----
+  const keyList = () => String(S.settings.geminiKey || PUB().geminiKey || '').split(/[,\s]+/).map(k => k.trim()).filter(Boolean);
+  const MODEL_FALLBACK = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+  S._aiPause = 0; S._keyIdx = 0;
+  S.aiPaused = () => S._aiPause && Date.now() < S._aiPause;
+  S.geminiAvailable = () => S.settings.aiMode !== 'off' && !S.aiPaused() && ((S.remote && S.geminiRemote) || keyList().length > 0);
   S.aiMode = () => S.geminiAvailable() ? (S.settings.aiMode || 'wrong') : 'off';
   S.gemini = async function (payload) {
-    if (S.remote && S.geminiRemote && !S.settings.geminiKey) return (await api('/gemini', { method: 'POST', body: payload })).text;
-    const key = S.settings.geminiKey || PUB().geminiKey;
-    if (!key) { if (S.remote && S.geminiRemote) return (await api('/gemini', { method: 'POST', body: payload })).text; throw new Error('Gemini API 키가 설정되지 않았습니다. (관리자 > 설정)'); }
-    const model = S.settings.geminiModel || PUB().geminiModel || DEFAULTS.geminiModel;
+    if (S.aiPaused()) throw new Error('AI 사용량 한도로 잠시 쉬는 중이에요. ' + Math.ceil((S._aiPause - Date.now()) / 60000) + '분 뒤 다시 켜집니다.');
+    const keys = keyList();
+    if (!keys.length) { if (S.remote && S.geminiRemote) return (await api('/gemini', { method: 'POST', body: payload })).text; throw new Error('Gemini API 키가 설정되지 않았습니다. (관리자 > 설정)'); }
+    const pref = S.settings.geminiModel || PUB().geminiModel || DEFAULTS.geminiModel;
+    const models = [pref].concat(MODEL_FALLBACK.filter(m => m !== pref));
     const body = { contents: [{ role: 'user', parts: [{ text: payload.prompt }] }], generationConfig: { temperature: payload.temperature == null ? 0.7 : payload.temperature } };
     if (payload.system) body.systemInstruction = { parts: [{ text: payload.system }] };
     if (payload.json) body.generationConfig.responseMimeType = 'application/json';
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const data = await res.json().catch(() => ({}));
-    if (res.status === 429) throw new Error('AI 사용량 한도에 도달했어요. 잠시 후 다시 시도하세요.');
-    if (res.status === 404 && model !== 'gemini-2.5-flash' && !payload._retried) { U.toast('모델 ' + model + ' 을(를) 찾을 수 없어 gemini-2.5-flash 로 재시도합니다.', 'info'); S.settings.geminiModel = 'gemini-2.5-flash'; return S.gemini({ ...payload, _retried: true }); }
-    if (!res.ok) throw new Error((data.error && data.error.message) || ('Gemini 오류 ' + res.status));
-    const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts;
-    return parts ? parts.map(p => p.text || '').join('') : '';
+    let lastErr = null, quotaHits = 0;
+    for (let ki = 0; ki < keys.length; ki++) {
+      const key = keys[(S._keyIdx + ki) % keys.length];
+      for (const model of models) {
+        let res, data;
+        try { res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); data = await res.json().catch(() => ({})); }
+        catch (e) { lastErr = new Error('네트워크 오류: ' + e.message); continue; }
+        if (res.ok) { S._keyIdx = (S._keyIdx + ki) % keys.length; const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts; return parts ? parts.map(p => p.text || '').join('') : ''; }
+        const msg = (data.error && data.error.message) || ('Gemini 오류 ' + res.status);
+        if (res.status === 429 || res.status === 503 || /quota|exhausted|rate/i.test(msg)) { quotaHits++; lastErr = new Error('AI 사용량 한도에 도달했어요.'); continue; } // 다음 모델 → 다음 키
+        if (res.status === 404 || res.status === 400 && /model/i.test(msg)) { lastErr = new Error(msg); continue; } // 모델명 문제 → 다음 모델
+        if (res.status === 403 || res.status === 401) { lastErr = new Error('API 키 오류: ' + msg); break; } // 키 문제 → 다음 키
+        throw new Error(msg);
+      }
+    }
+    if (quotaHits) { S._aiPause = Date.now() + 10 * 60000; if (U && U.toast) U.toast('AI 무료 사용량 한도에 도달해 10분간 AI 기능을 쉽니다. 문제 풀이·해설은 그대로 됩니다.', 'info'); }
+    throw lastErr || new Error('AI 호출 실패');
   };
-
   // ---- 3D 모델 파일 업로드(서버 모드): app/assets/models/ 에 저장 ----
   S.uploadAsset = async function (file, name) {
     if (S.backend !== 'server') throw new Error('PC 서버 모드에서만 업로드할 수 있습니다. 정적 배포에서는 app/assets/models/ 폴더에 파일을 넣고 경로를 입력하세요.');

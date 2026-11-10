@@ -41,7 +41,8 @@ window.Hospital3D = (() => {
     x.clearRect(0, 0, 512, 668);
     // 호실 번호(입체감 있는 회색 숫자)
     x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 150px Pretendard, "Malgun Gothic", sans-serif';
-    x.fillStyle = 'rgba(0,0,0,.18)'; x.fillText(`${fl}0${i + 1}`, 262, 112); x.fillStyle = '#8A94A3'; x.fillText(`${fl}0${i + 1}`, 256, 104); x.fillStyle = '#B5BEC9'; x.fillText(`${fl}0${i + 1}`, 253, 100);
+    // 호실 번호: 어두운 남색 + 흰 테두리(밝은 벽·어두운 벽 어디서든 보이도록)
+    x.lineJoin = 'round'; x.lineWidth = 16; x.strokeStyle = 'rgba(255,255,255,.95)'; x.strokeText(`${fl}0${i + 1}`, 256, 104); x.fillStyle = 'rgba(0,0,0,.25)'; x.fillText(`${fl}0${i + 1}`, 261, 110); x.fillStyle = '#0F2546'; x.fillText(`${fl}0${i + 1}`, 256, 104);
     // 흰 플레이트
     x.fillStyle = 'rgba(0,0,0,.15)'; roundRect(x, 52, 232, 420, 400, 18); x.fill(); x.fillStyle = '#FFFFFF'; roundRect(x, 44, 224, 420, 400, 18); x.fill(); x.strokeStyle = '#CBD5E1'; x.lineWidth = 4; roundRect(x, 44, 224, 420, 400, 18); x.stroke();
     x.fillStyle = meta.accent; roundRect(x, 44, 224, 420, 34, 10); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 22px Pretendard, "Malgun Gothic", sans-serif'; x.fillText(meta.name, 254, 242);
@@ -311,7 +312,7 @@ window.Hospital3D = (() => {
     world.rooms.push(room);
   }
   function plate(i, meta, x, y, z, standing) {
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(.46, .6), new THREE.MeshStandardMaterial({ map: plateTexture(floor, i, {}, meta), roughness: .5, metalness: .05, transparent: true })); m.position.set(x, y, z); m.userData.plate = i; m.castShadow = false; G.add(m); world.clickables.push(m);
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(.46, .6), new THREE.MeshBasicMaterial({ map: plateTexture(floor, i, {}, meta), transparent: true })); // 조명 영향 없는 재질: 밝은 벽 앞에서도 글자가 또렷 m.position.set(x, y, z); m.userData.plate = i; m.castShadow = false; G.add(m); world.clickables.push(m);
     if (standing) { const pole = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1.05, 10), mat('#9CA3AF', { metalness: .7 })); pole.position.set(x, .52, z - .02); G.add(pole); const base = new THREE.Mesh(new THREE.CylinderGeometry(.2, .22, .04, 16), mat('#6B7280', { metalness: .6 })); base.position.set(x, .02, z - .02); G.add(base); const back = new THREE.Mesh(new THREE.BoxGeometry(.5, .64, .02), mat('#F3F4F6')); back.position.set(x, y, z - .015); G.add(back); }
     return m;
   }

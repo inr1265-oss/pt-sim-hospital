@@ -80,10 +80,10 @@ window.Session = (() => {
         U.append(chips, chip);
       });
       (room.aiChat || []).forEach(m => addBubble(m.role === 'me' ? 'me' : 'pt', m.text));
-      let askRow = null, inpRef = null; const aiOn = Store.geminiAvailable(); const localReply = t => { // AI 키가 없을 때의 임시 응답: 겹치는 단어가 충분할 때만 답하고, 애매하면 어떤 질문으로 이해했는지 밝힘
+      let askRow = null, inpRef = null; const aiOn = Store.geminiAvailable(); const localReply = (t, onlyStrong) => { // AI 키가 없을 때의 임시 응답: 겹치는 단어가 충분할 때만 답하고, 애매하면 어떤 질문으로 이해했는지 밝힘
         const stop = new Set(['어떻게', '언제', '어디', '혹시', '지금', '그런', '있나요', '인가요', '해요', '세요', '정도', '혹은', '그리고', '환자']); const toks = (t.match(/[가-힣A-Za-z0-9]{2,}/g) || []).filter(w => !stop.has(w)); let best = null, bs = 0;
         c.S.chat.forEach(([q, a], k) => { const sc = toks.reduce((n, w) => n + ((q.includes(w) ? 2 : 0) + (a.includes(w) ? 1 : 0)), 0); if (sc > bs) { bs = sc; best = [q, a, k]; } });
-        if (best && bs >= 3) { room.chatOpened.add(best[2]); return best[1]; }
+        if (best && bs >= 3) { room.chatOpened.add(best[2]); return best[1]; } if (onlyStrong) return null;
         if (best && bs > 0) { room.chatOpened.add(best[2]); return '혹시 「' + best[0] + '」 말씀이신가요? ' + best[1]; }
         return '음… 그건 잘 모르겠어요. 이런 건 답할 수 있어요: ' + c.S.chat.map(x => x[0]).join(' / '); };
       {
@@ -91,7 +91,7 @@ window.Session = (() => {
         const send = async () => {
           const t = inp.value.trim(); if (!t) return; inp.value = ''; btn.disabled = true; inp.disabled = true;
           addBubble('me', t); const typing = addBubble('pt', '…'); typing.querySelector('.bubble').classList.add('typing');
-          try { const a = aiOn ? await Gemini.patientReply({ case: c, history: room.aiChat, userQ: t }) : localReply(t); typing.remove(); addBubble('pt', a); room.aiChat.push({ role: 'me', text: t }, { role: 'pt', text: a }); room.chatOpened.add('ai' + room.aiChat.length); tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); }
+          try { const a = aiOn ? (localReply(t, true) || await Gemini.patientReply({ case: c, history: room.aiChat, userQ: t })) : localReply(t); typing.remove(); addBubble('pt', a); room.aiChat.push({ role: 'me', text: t }, { role: 'pt', text: a }); room.chatOpened.add('ai' + room.aiChat.length); tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); }
           catch (err) { typing.remove(); addBubble('pt', '(AI 환자 응답 실패: ' + err.message + ')'); }
           btn.disabled = false; inp.disabled = false; inp.focus();
         };
