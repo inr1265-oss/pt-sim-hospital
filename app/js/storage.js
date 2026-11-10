@@ -158,7 +158,7 @@ window.Store = (() => {
         let res, data;
         try { res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); data = await res.json().catch(() => ({})); }
         catch (e) { lastErr = new Error('네트워크 오류: ' + e.message); continue; }
-        if (res.ok) { S._keyIdx = (S._keyIdx + ki) % keys.length; const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts; return parts ? parts.map(p => p.text || '').join('') : ''; }
+        if (res.ok) { S._keyIdx = (S._keyIdx + ki) % keys.length; const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts; return parts ? parts.filter(p => !p.thought).map(p => p.text || '').join('').trim() : ''; /* thought 파트(gemma 등 생각 과정)는 답변에서 제외 */ }
         const msg = (data.error && data.error.message) || ('Gemini 오류 ' + res.status);
         if (res.status === 429 || res.status === 503 || /quota|exhausted|rate/i.test(msg)) { quotaHits++; S._badModel[model] = now + 10 * 60000; lastErr = new Error('AI 사용량 한도에 도달했어요.'); continue; } // 다음 모델 → 다음 키
         if (res.status === 404 || res.status === 400 && /model/i.test(msg)) { S._badModel[model] = now + 60 * 60000; lastErr = new Error(msg); continue; } // 지원 종료·없는 모델 → 1시간 건너뜀, 다음 모델
