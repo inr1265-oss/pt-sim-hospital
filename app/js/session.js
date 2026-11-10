@@ -92,7 +92,7 @@ window.Session = (() => {
           const t = inp.value.trim(); if (!t) return; inp.value = ''; btn.disabled = true; inp.disabled = true;
           addBubble('me', t); const typing = addBubble('pt', '…'); typing.querySelector('.bubble').classList.add('typing');
           try { const a = aiOn ? (localReply(t, true) || await Gemini.patientReply({ case: c, history: room.aiChat, userQ: t })) : localReply(t); typing.remove(); addBubble('pt', a); room.aiChat.push({ role: 'me', text: t }, { role: 'pt', text: a }); room.chatOpened.add('ai' + room.aiChat.length); tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); }
-          catch (err) { typing.remove(); addBubble('pt', '(AI 환자 응답 실패: ' + err.message + ')'); }
+          catch (err) { typing.remove(); const a = localReply(t); addBubble('pt', a); room.aiChat.push({ role: 'me', text: t }, { role: 'pt', text: a }); room.chatOpened.add('ai' + room.aiChat.length); tabBtns.S.classList.toggle('done', room.chatOpened.size >= 3); console.warn('AI 환자 응답 실패, 기본 답변 사용:', err.message); }
           btn.disabled = false; inp.disabled = false; inp.focus();
         };
         const btn = h('button', { class: 'btn primary small', onClick: send }, '질문');

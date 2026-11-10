@@ -163,7 +163,8 @@ window.Store = (() => {
         if (res.status === 429 || res.status === 503 || /quota|exhausted|rate/i.test(msg)) { quotaHits++; S._badModel[model] = now + 10 * 60000; lastErr = new Error('AI 사용량 한도에 도달했어요.'); continue; } // 다음 모델 → 다음 키
         if (res.status === 404 || res.status === 400 && /model/i.test(msg)) { S._badModel[model] = now + 60 * 60000; lastErr = new Error(msg); continue; } // 지원 종료·없는 모델 → 1시간 건너뜀, 다음 모델
         if (res.status === 403 || res.status === 401) { lastErr = new Error('API 키 오류: ' + msg); break; } // 키 문제 → 다음 키
-        throw new Error(msg);
+        /* 500 등 구글 내부 오류: 해당 모델만 2분 건너뛰고 다음 모델로 */
+        S._badModel[model] = now + 2 * 60000; lastErr = new Error(/internal/i.test(msg) ? 'AI 서버가 잠시 불안정해요. 다시 시도해 주세요.' : msg); continue;
       }
     }
     if (quotaHits && quotaHits >= Math.max(1, models.length * keys.length - 1)) { S._aiPause = Date.now() + 10 * 60000; if (U && U.toast) U.toast('AI 무료 사용량 한도에 도달해 10분간 AI 기능을 쉽니다. 문제 풀이·해설은 그대로 됩니다.', 'info'); }
