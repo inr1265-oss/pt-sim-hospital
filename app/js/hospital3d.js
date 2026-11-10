@@ -39,10 +39,11 @@ window.Hospital3D = (() => {
   function plateTexture(fl, i, info, meta) {
     const cv = document.createElement('canvas'); cv.width = 512; cv.height = 668; const x = cv.getContext('2d');
     x.clearRect(0, 0, 512, 668);
-    // 호실 번호(입체감 있는 회색 숫자)
-    x.textAlign = 'center'; x.textBaseline = 'middle'; x.font = 'bold 150px Pretendard, "Malgun Gothic", sans-serif';
-    // 호실 번호: 어두운 남색 + 흰 테두리(밝은 벽·어두운 벽 어디서든 보이도록)
-    x.lineJoin = 'round'; x.lineWidth = 16; x.strokeStyle = 'rgba(255,255,255,.95)'; x.strokeText(`${fl}0${i + 1}`, 256, 104); x.fillStyle = 'rgba(0,0,0,.25)'; x.fillText(`${fl}0${i + 1}`, 261, 110); x.fillStyle = '#0F2546'; x.fillText(`${fl}0${i + 1}`, 256, 104);
+    // 호실 번호: 층 고유의 진한 색 바탕판 + 흰 글자(병원 표지판처럼, 어떤 벽색에도 묻히지 않음)
+    x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = 'rgba(0,0,0,.22)'; roundRect(x, 94, 38, 328, 164, 24); x.fill();
+    x.fillStyle = meta.deep || '#0F2546'; roundRect(x, 86, 30, 328, 164, 24); x.fill(); x.strokeStyle = '#FFFFFF'; x.lineWidth = 8; roundRect(x, 86, 30, 328, 164, 24); x.stroke();
+    x.font = 'bold 128px Pretendard, "Malgun Gothic", sans-serif'; x.fillStyle = 'rgba(0,0,0,.3)'; x.fillText(`${fl}0${i + 1}`, 253, 117); x.fillStyle = '#FFFFFF'; x.fillText(`${fl}0${i + 1}`, 250, 112);
     // 흰 플레이트
     x.fillStyle = 'rgba(0,0,0,.15)'; roundRect(x, 52, 232, 420, 400, 18); x.fill(); x.fillStyle = '#FFFFFF'; roundRect(x, 44, 224, 420, 400, 18); x.fill(); x.strokeStyle = '#CBD5E1'; x.lineWidth = 4; roundRect(x, 44, 224, 420, 400, 18); x.stroke();
     x.fillStyle = meta.accent; roundRect(x, 44, 224, 420, 34, 10); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 22px Pretendard, "Malgun Gothic", sans-serif'; x.fillText(meta.name, 254, 242);
