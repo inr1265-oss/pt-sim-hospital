@@ -5,7 +5,7 @@ window.Store = (() => {
     set(k, v) { try { localStorage.setItem('pt:' + k, JSON.stringify(v)); } catch (e) { console.warn('localStorage', e); } },
     del(k) { try { localStorage.removeItem('pt:' + k); } catch (e) { /* ignore */ } }
   };
-  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 60, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbChildF: '', patientGlbChildM: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-2.5-flash-lite', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
+  const DEFAULTS = { questionTarget: 40, questionsPerStep: 3, passScore: 60, avatarGlbF: '', avatarGlbM: '', patientGlbF: '', patientGlbM: '', patientGlbChild: '', patientGlbChildF: '', patientGlbChildM: '', patientGlbElderF: '', patientGlbElderM: '', geminiModel: 'gemini-flash-lite-latest', geminiKey: '', aiMode: 'wrong', adminPinHash: null, schoolName: '신성대학교 물리치료학과', appName: 'PT 시뮬레이션 병원' };
   const PUB = () => window.PT_CONFIG || {};
   const S = { remote: false, backend: 'local', geminiRemote: false, settings: { ...DEFAULTS }, adminPin: null, sheetUrl: null };
   const SHEET = () => String(PUB().sheetApi || '').trim(); // 구글 시트(Apps Script 웹 앱) 주소 — app/js/config.js
@@ -135,7 +135,8 @@ window.Store = (() => {
   // ---- Gemini ----
   // ---- Gemini (무료 한도 대응: 키 여러 개 순환, 모델 대체, 한도 초과 시 10분 쉬기) ----
   const keyList = () => String(S.settings.geminiKey || PUB().geminiKey || '').split(/[,\s]+/).map(k => k.trim()).filter(Boolean);
-  const MODEL_FALLBACK = ['gemini-2.5-flash-lite', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+  const MODEL_FALLBACK = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemma-4-26b-a4b-it']; // 한도·지원 종료 시 차례로 대체(2026-11 기준 제공 모델)
+  S._badModel = {}; // model → 재시도 가능 시각(한도 초과·지원 종료 모델은 10분간 건너뜀)
   S._aiPause = 0; S._keyIdx = 0;
   S.aiPaused = () => S._aiPause && Date.now() < S._aiPause;
   S.geminiAvailable = () => S.settings.aiMode !== 'off' && !S.aiPaused() && ((S.remote && S.geminiRemote) || keyList().length > 0);
@@ -145,7 +146,8 @@ window.Store = (() => {
     const keys = keyList();
     if (!keys.length) { if (S.remote && S.geminiRemote) return (await api('/gemini', { method: 'POST', body: payload })).text; throw new Error('Gemini API 키가 설정되지 않았습니다. (관리자 > 설정)'); }
     const pref = S.settings.geminiModel || PUB().geminiModel || DEFAULTS.geminiModel;
-    const models = [pref].concat(MODEL_FALLBACK.filter(m => m !== pref));
+    const now = Date.now(); const models = [pref].concat(MODEL_FALLBACK.filter(m => m !== pref)).filter(m => !(S._badModel[m] > now));
+    if (!models.length) { Object.keys(S._badModel).forEach(k => delete S._badModel[k]); models.push(pref); }
     const body = { contents: [{ role: 'user', parts: [{ text: payload.prompt }] }], generationConfig: { temperature: payload.temperature == null ? 0.7 : payload.temperature } };
     if (payload.system) body.systemInstruction = { parts: [{ text: payload.system }] };
     if (payload.json) body.generationConfig.responseMimeType = 'application/json';
@@ -158,13 +160,13 @@ window.Store = (() => {
         catch (e) { lastErr = new Error('네트워크 오류: ' + e.message); continue; }
         if (res.ok) { S._keyIdx = (S._keyIdx + ki) % keys.length; const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts; return parts ? parts.map(p => p.text || '').join('') : ''; }
         const msg = (data.error && data.error.message) || ('Gemini 오류 ' + res.status);
-        if (res.status === 429 || res.status === 503 || /quota|exhausted|rate/i.test(msg)) { quotaHits++; lastErr = new Error('AI 사용량 한도에 도달했어요.'); continue; } // 다음 모델 → 다음 키
-        if (res.status === 404 || res.status === 400 && /model/i.test(msg)) { lastErr = new Error(msg); continue; } // 모델명 문제 → 다음 모델
+        if (res.status === 429 || res.status === 503 || /quota|exhausted|rate/i.test(msg)) { quotaHits++; S._badModel[model] = now + 10 * 60000; lastErr = new Error('AI 사용량 한도에 도달했어요.'); continue; } // 다음 모델 → 다음 키
+        if (res.status === 404 || res.status === 400 && /model/i.test(msg)) { S._badModel[model] = now + 60 * 60000; lastErr = new Error(msg); continue; } // 지원 종료·없는 모델 → 1시간 건너뜀, 다음 모델
         if (res.status === 403 || res.status === 401) { lastErr = new Error('API 키 오류: ' + msg); break; } // 키 문제 → 다음 키
         throw new Error(msg);
       }
     }
-    if (quotaHits) { S._aiPause = Date.now() + 10 * 60000; if (U && U.toast) U.toast('AI 무료 사용량 한도에 도달해 10분간 AI 기능을 쉽니다. 문제 풀이·해설은 그대로 됩니다.', 'info'); }
+    if (quotaHits && quotaHits >= Math.max(1, models.length * keys.length - 1)) { S._aiPause = Date.now() + 10 * 60000; if (U && U.toast) U.toast('AI 무료 사용량 한도에 도달해 10분간 AI 기능을 쉽니다. 문제 풀이·해설은 그대로 됩니다.', 'info'); }
     throw lastErr || new Error('AI 호출 실패');
   };
   // ---- 3D 모델 파일 업로드(서버 모드): app/assets/models/ 에 저장 ----

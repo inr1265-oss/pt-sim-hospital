@@ -66,7 +66,7 @@ PC Chrome/Edge에서는 관리자 콘솔 → 성적 관리에서 **"결과 자�
 2. **서버 모드**: `server/config.json` 의 `geminiApiKey` 에 입력(키가 브라우저에 노출되지 않음). 모델명은 `geminiModel`(기본 `gemini-2.5-flash`, 최신 무료 모델명은 AI Studio에서 확인).
 3. **정적 모드(이 브라우저만)**: 관리자 콘솔 → 설정 → Gemini API 키 입력(그 브라우저에만 저장).
 4. **정적 배포에서 모든 학생에게 켜기(GitHub Pages)**: `app/js/config.js` 의 `geminiKey` 에 키를 넣고 push. 이때 키는 반드시 [Google Cloud 콘솔 > 사용자 인증 정보](https://console.cloud.google.com/apis/credentials) 에서 **애플리케이션 제한사항: 웹사이트** 로 `https://inr1265-oss.github.io/*` 만 허용하도록 제한하세요. 무료 등급은 분당·일일 호출 한도가 있으므로 관리자 설정의 "AI 튜터 동작 방식"은 **오답일 때 자동**(기본)을 권장합니다. 같은 문항·같은 오답의 해설은 브라우저에 캐시되어 재호출하지 않습니다.
-5. **무료 한도 늘리기(2026-11)**: 기본 모델은 하루 한도가 가장 큰 gemini-2.5-flash-lite 이고, 한도에 걸리면 gemini-2.5-flash → gemini-2.0-flash 로 자동 대체한 뒤 모두 막히면 10분간 AI 기능만 쉽니다(문제 풀이·기본 해설은 계속). 키는 **쉼표로 여러 개**(AQ.aaa,AQ.bbb) 넣을 수 있고, 서로 다른 Google Cloud 프로젝트에서 만든 키마다 무료 한도가 따로 있어 키 수만큼 한도가 늘어납니다. GitHub Secret GEMINI_KEY 에도 같은 형식으로 넣으면 됩니다. 문진에서 질문 칩과 같은 뜻의 질문은 AI 없이 바로 답해 호출을 아낍니다.
+5. **무료 한도 늘리기(2026-11)**: 기본 모델은 gemini-flash-lite-latest(항상 최신 경량 모델) 이고, 한도에 걸리거나 지원이 끝난 모델이면 gemini-3.5-flash-lite → gemini-3.5-flash → gemini-flash-latest → gemma-4 로 자동 대체한 뒤 모두 막히면 10분간 AI 기능만 쉽니다(문제 풀이·기본 해설은 계속). 키는 **쉼표로 여러 개**(AQ.aaa,AQ.bbb) 넣을 수 있고, 서로 다른 Google Cloud 프로젝트에서 만든 키마다 무료 한도가 따로 있어 키 수만큼 한도가 늘어납니다. GitHub Secret GEMINI_KEY 에도 같은 형식으로 넣으면 됩니다. 문진에서 질문 칩과 같은 뜻의 질문은 AI 없이 바로 답해 호출을 아낍니다.
 4. 기능: 오답/정답 해설 후 **"AI 튜터에게 더 자세히 묻기"**, 관리자 콘솔 **"AI로 새 환자 사례 생성"**(JSON 스키마 검증 후 케이스 풀에 추가).
 
 ## 케이스 추가·수정(Obsidian 연동)
