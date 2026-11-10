@@ -136,40 +136,43 @@ window.Store = (() => {
   // ---- Gemini (무료 한도 대응: 키 여러 개 순환, 모델 대체, 한도 초과 시 10분 쉬기) ----
   const keyList = () => String(S.settings.geminiKey || PUB().geminiKey || '').split(/[,\s]+/).map(k => k.trim()).filter(Boolean);
   const MODEL_FALLBACK = ['gemini-flash-lite-latest', 'gemini-3.5-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest', 'gemma-4-26b-a4b-it']; // 한도·지원 종료 시 차례로 대체(2026-11 기준 제공 모델)
-  S._badModel = {}; // model → 재시도 가능 시각(한도 초과·지원 종료 모델은 10분간 건너뜀)
-  S._aiPause = 0; S._keyIdx = 0;
-  S.aiPaused = () => S._aiPause && Date.now() < S._aiPause;
+  S._badModel = {}; // model → 재시도 가능 시각(한도 초과·지원 종료·일시 오류 모델은 그때까지 건너뜀)
+  S._keyIdx = 0; S._pauseToastAt = 0;
+  const modelChain = () => { const pref = S.settings.geminiModel || PUB().geminiModel || DEFAULTS.geminiModel; return [pref].concat(MODEL_FALLBACK.filter(m => m !== pref)); };
+  const liveModels = () => { const now = Date.now(); return modelChain().filter(m => !(S._badModel[m] > now)); };
+  S.aiResumeAt = () => Math.min.apply(null, modelChain().map(m => S._badModel[m] || 0)); /* 모든 모델이 막혔을 때 가장 먼저 풀리는 시각 */
+  S.aiPaused = () => keyList().length > 0 && liveModels().length === 0;
   S.geminiAvailable = () => S.settings.aiMode !== 'off' && !S.aiPaused() && ((S.remote && S.geminiRemote) || keyList().length > 0);
   S.aiMode = () => S.geminiAvailable() ? (S.settings.aiMode || 'wrong') : 'off';
+  /* 구글이 알려주는 재시도 대기 시간(분당 한도면 수십 초, 일일 한도면 몇 시간) → 그 모델만 그때까지 건너뜀 */
+  const retryMs = (data, fallback) => { const d = ((data.error && data.error.details) || []).find(x => x.retryDelay); const sec = d && parseFloat(d.retryDelay); return sec > 0 ? Math.min(sec * 1000 + 2000, 24 * 3600000) : fallback; };
+  const pausedError = () => { const min = Math.max(1, Math.ceil((S.aiResumeAt() - Date.now()) / 60000)); const msg = 'AI 무료 사용량 한도로 잠시 쉬는 중이에요. ' + (min >= 60 ? Math.ceil(min / 60) + '시간' : min + '분') + ' 뒤 다시 켜집니다. (문제 풀이·기본 해설은 그대로 됩니다)'; if (U && U.toast && Date.now() - S._pauseToastAt > 60000) { S._pauseToastAt = Date.now(); U.toast(msg, 'info'); } return new Error(msg); };
   S.gemini = async function (payload) {
-    if (S.aiPaused()) throw new Error('AI 사용량 한도로 잠시 쉬는 중이에요. ' + Math.ceil((S._aiPause - Date.now()) / 60000) + '분 뒤 다시 켜집니다.');
     const keys = keyList();
     if (!keys.length) { if (S.remote && S.geminiRemote) return (await api('/gemini', { method: 'POST', body: payload })).text; throw new Error('Gemini API 키가 설정되지 않았습니다. (관리자 > 설정)'); }
-    const pref = S.settings.geminiModel || PUB().geminiModel || DEFAULTS.geminiModel;
-    const now = Date.now(); const models = [pref].concat(MODEL_FALLBACK.filter(m => m !== pref)).filter(m => !(S._badModel[m] > now));
-    if (!models.length) { Object.keys(S._badModel).forEach(k => delete S._badModel[k]); models.push(pref); }
+    const models = liveModels();
+    if (!models.length) throw pausedError();
     const body = { contents: [{ role: 'user', parts: [{ text: payload.prompt }] }], generationConfig: { temperature: payload.temperature == null ? 0.7 : payload.temperature } };
     if (payload.system) body.systemInstruction = { parts: [{ text: payload.system }] };
     if (payload.json) body.generationConfig.responseMimeType = 'application/json';
-    let lastErr = null, quotaHits = 0, attempts = 0; const retried = {};
+    let lastErr = null; const retried = {};
     for (let ki = 0; ki < keys.length; ki++) {
       const key = keys[(S._keyIdx + ki) % keys.length];
       for (let mi = 0; mi < models.length; mi++) { const model = models[mi];
         let res, data;
         try { res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); data = await res.json().catch(() => ({})); }
         catch (e) { lastErr = new Error('네트워크 오류: ' + e.message); continue; }
-        attempts++;
         if (res.ok) { S._keyIdx = (S._keyIdx + ki) % keys.length; const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts; return parts ? parts.filter(p => !p.thought).map(p => p.text || '').join('').trim() : ''; /* thought 파트(gemma 등 생각 과정)는 답변에서 제외 */ }
         const msg = (data.error && data.error.message) || ('Gemini 오류 ' + res.status);
-        if (res.status === 429 || res.status === 503 || /quota|exhausted|rate/i.test(msg)) { quotaHits++; S._badModel[model] = now + 10 * 60000; lastErr = new Error('AI 사용량 한도에 도달했어요.'); continue; } // 다음 모델 → 다음 키
-        if (res.status === 404 || res.status === 400 && /model/i.test(msg)) { S._badModel[model] = now + 60 * 60000; lastErr = new Error(msg); continue; } // 지원 종료·없는 모델 → 1시간 건너뜀, 다음 모델
+        if (res.status === 429 || res.status === 503 || /quota|exhausted|rate/i.test(msg)) { S._badModel[model] = Date.now() + retryMs(data, res.status === 503 ? 2 * 60000 : 60000); lastErr = new Error('AI 사용량 한도에 도달했어요.'); continue; } // 한도 초과 → 다음 모델 → 다음 키
+        if (res.status === 404 || res.status === 400 && /model/i.test(msg)) { S._badModel[model] = Date.now() + 60 * 60000; lastErr = new Error(msg); continue; } // 지원 종료·없는 모델 → 1시간 건너뜀, 다음 모델
         if (res.status === 403 || res.status === 401) { lastErr = new Error('API 키 오류: ' + msg); break; } // 키 문제 → 다음 키
-        /* 500 등 구글 내부 오류: 해당 모델만 2분 건너뛰고 다음 모델로 */
-        if (!retried[model]) { retried[model] = 1; await new Promise(r => setTimeout(r, 700)); mi--; continue; } /* 같은 모델 1회 재시도(일시적 오류가 잦음) */
-        S._badModel[model] = now + 2 * 60000; lastErr = new Error(/internal/i.test(msg) ? 'AI 서버가 잠시 불안정해요. 다시 시도해 주세요.' : msg); continue;
+        /* 500 등 구글 내부 오류(일시적일 때가 많음): 같은 모델 1회 재시도 후, 해당 모델만 2분 건너뛰고 다음 모델로 */
+        if (!retried[model]) { retried[model] = 1; await new Promise(r => setTimeout(r, 700)); mi--; continue; }
+        S._badModel[model] = Date.now() + 2 * 60000; lastErr = new Error(/internal/i.test(msg) ? 'AI 서버가 잠시 불안정해요. 다시 시도해 주세요.' : msg); continue;
       }
     }
-    if (quotaHits && quotaHits >= attempts) { /* 시도한 모든 모델·키가 한도 초과일 때만 10분 휴식 */ S._aiPause = Date.now() + 10 * 60000; if (U && U.toast) U.toast('AI 무료 사용량 한도에 도달해 10분간 AI 기능을 쉽니다. 문제 풀이·해설은 그대로 됩니다.', 'info'); }
+    if (!liveModels().length) throw pausedError();
     throw lastErr || new Error('AI 호출 실패');
   };
   // ---- 3D 모델 파일 업로드(서버 모드): app/assets/models/ 에 저장 ----
