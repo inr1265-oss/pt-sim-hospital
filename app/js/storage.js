@@ -151,23 +151,25 @@ window.Store = (() => {
     const body = { contents: [{ role: 'user', parts: [{ text: payload.prompt }] }], generationConfig: { temperature: payload.temperature == null ? 0.7 : payload.temperature } };
     if (payload.system) body.systemInstruction = { parts: [{ text: payload.system }] };
     if (payload.json) body.generationConfig.responseMimeType = 'application/json';
-    let lastErr = null, quotaHits = 0;
+    let lastErr = null, quotaHits = 0, attempts = 0; const retried = {};
     for (let ki = 0; ki < keys.length; ki++) {
       const key = keys[(S._keyIdx + ki) % keys.length];
-      for (const model of models) {
+      for (let mi = 0; mi < models.length; mi++) { const model = models[mi];
         let res, data;
         try { res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); data = await res.json().catch(() => ({})); }
         catch (e) { lastErr = new Error('네트워크 오류: ' + e.message); continue; }
+        attempts++;
         if (res.ok) { S._keyIdx = (S._keyIdx + ki) % keys.length; const parts = data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts; return parts ? parts.filter(p => !p.thought).map(p => p.text || '').join('').trim() : ''; /* thought 파트(gemma 등 생각 과정)는 답변에서 제외 */ }
         const msg = (data.error && data.error.message) || ('Gemini 오류 ' + res.status);
         if (res.status === 429 || res.status === 503 || /quota|exhausted|rate/i.test(msg)) { quotaHits++; S._badModel[model] = now + 10 * 60000; lastErr = new Error('AI 사용량 한도에 도달했어요.'); continue; } // 다음 모델 → 다음 키
         if (res.status === 404 || res.status === 400 && /model/i.test(msg)) { S._badModel[model] = now + 60 * 60000; lastErr = new Error(msg); continue; } // 지원 종료·없는 모델 → 1시간 건너뜀, 다음 모델
         if (res.status === 403 || res.status === 401) { lastErr = new Error('API 키 오류: ' + msg); break; } // 키 문제 → 다음 키
         /* 500 등 구글 내부 오류: 해당 모델만 2분 건너뛰고 다음 모델로 */
+        if (!retried[model]) { retried[model] = 1; await new Promise(r => setTimeout(r, 700)); mi--; continue; } /* 같은 모델 1회 재시도(일시적 오류가 잦음) */
         S._badModel[model] = now + 2 * 60000; lastErr = new Error(/internal/i.test(msg) ? 'AI 서버가 잠시 불안정해요. 다시 시도해 주세요.' : msg); continue;
       }
     }
-    if (quotaHits && quotaHits >= Math.max(1, models.length * keys.length - 1)) { S._aiPause = Date.now() + 10 * 60000; if (U && U.toast) U.toast('AI 무료 사용량 한도에 도달해 10분간 AI 기능을 쉽니다. 문제 풀이·해설은 그대로 됩니다.', 'info'); }
+    if (quotaHits && quotaHits >= attempts) { /* 시도한 모든 모델·키가 한도 초과일 때만 10분 휴식 */ S._aiPause = Date.now() + 10 * 60000; if (U && U.toast) U.toast('AI 무료 사용량 한도에 도달해 10분간 AI 기능을 쉽니다. 문제 풀이·해설은 그대로 됩니다.', 'info'); }
     throw lastErr || new Error('AI 호출 실패');
   };
   // ---- 3D 모델 파일 업로드(서버 모드): app/assets/models/ 에 저장 ----
