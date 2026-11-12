@@ -105,13 +105,46 @@ window.Hospital3D = (() => {
     const g = new THREE.PlaneGeometry(w, h); const uv = g.attributes.uv, uSpan = (w / h) * vSpan / 4; for (let k = 0; k < uv.count; k++) uv.setXY(k, u0 + uv.getX(k) * uSpan, v0 + uv.getY(k) * vSpan);
     return new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: landscapeTexture(), toneMapped: false }));
   }
-  function windowUnit(cx, cy, w, h, z, dir, u0, curtain) { // dir +1: 유리가 +z 를 봄(치료실 뒷벽) / -1: -z 를 봄(복도 창)
-    const pane = slicePlane(w, h, 1, 0, u0); pane.position.set(cx, cy, z); if (dir < 0) pane.rotation.y = Math.PI; G.add(pane);
-    const f = z + dir * .03, c = PAL.frame, t = .09;
-    box(w + .18, t, .1, c, cx, cy + h / 2 + t / 2, f); box(w + .36, .07, .2, c, cx, cy - h / 2 - .035, f + dir * .04);
-    [-1, 1].forEach(sd => box(t, h, .1, c, cx + sd * (w / 2 + t / 2), cy, f));
-    box(.05, h, .05, c, cx, cy, f); box(w, .05, .05, c, cx, cy + h * .14, f);
-    if (curtain) { [-1, 1].forEach(sd => { const cu = box(.3, h + .16, .05, curtain, cx + sd * (w / 2 + .02), cy - .02, f + dir * .07, { roughness: 1 }); cu.castShadow = false; }); const rod = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, w + .7, 8), mat(PAL.woodDark)); rod.rotation.z = Math.PI / 2; rod.position.set(cx, cy + h / 2 + .13, f + dir * .08); G.add(rod); }
+  const WIN_STYLES = ['arch', 'grid', 'round', 'peak', 'twin', 'classic']; /* 창 모양 6종: 아치·격자·둥근 창·박공·쌍둥이 아치·십자 */
+  function winRise(kind, w, h) { return kind === 'arch' ? Math.min(w / 2, h * .42) : kind === 'peak' ? Math.min(w * .25, h * .34) : 0; } /* 윗부분(아치·지붕)이 솟은 높이 */
+  function winShape(kind, w, h) { /* 창 윤곽 */
+    const s = new THREE.Shape(), a = w / 2, b = h / 2, r = winRise(kind, w, h);
+    if (kind === 'arch') { s.moveTo(-a, -b); s.lineTo(a, -b); s.lineTo(a, b - r); s.absellipse(0, b - r, a, r, 0, Math.PI, false, 0); s.lineTo(-a, -b); }
+    else if (kind === 'round') { s.absarc(0, 0, Math.min(a, b), 0, Math.PI * 2, false); }
+    else if (kind === 'peak') { s.moveTo(-a, -b); s.lineTo(a, -b); s.lineTo(a, b - r); s.lineTo(0, b); s.lineTo(-a, b - r); s.lineTo(-a, -b); }
+    else { s.moveTo(-a, -b); s.lineTo(a, -b); s.lineTo(a, b); s.lineTo(-a, b); s.lineTo(-a, -b); }
+    return s;
+  }
+  function winOne(kind, cx, cy, w, h, z, dir, u0) { /* 창 하나: 풍경 유리 + 모양대로 딴 나무틀 + 창살 */
+    const g = new THREE.ShapeGeometry(winShape(kind, w, h), 28), p = g.attributes.position, uv = g.attributes.uv;
+    for (let k = 0; k < p.count; k++) uv.setXY(k, u0 + ((p.getX(k) + w / 2) / h) / 4, (p.getY(k) + h / 2) / h);
+    const pane = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: landscapeTexture(), toneMapped: false })); pane.position.set(cx, cy, z); if (dir < 0) pane.rotation.y = Math.PI; G.add(pane);
+    const f = z + dir * .03, c = PAL.frame, t = .09, r = winRise(kind, w, h);
+    const outer = winShape(kind, w + t * 2, h + t * 2); outer.holes.push(winShape(kind, w, h));
+    const fr = new THREE.Mesh(new THREE.ExtrudeGeometry(outer, { depth: .1, bevelEnabled: false, curveSegments: 28 }), mat(c)); fr.position.set(cx, cy, f - .05); fr.castShadow = true; fr.receiveShadow = true; G.add(fr);
+    const V = (dx, y0, y1) => box(.05, y1 - y0, .05, c, cx + dx, cy + (y0 + y1) / 2, f), Hh = (dy, x0, x1) => box(x1 - x0, .05, .05, c, cx + (x0 + x1) / 2, cy + dy, f);
+    const a = w / 2, b = h / 2;
+    if (kind === 'grid') { const cols = Math.max(2, Math.round(w / .75)), rows = w > 2 ? 2 : 3; for (let k = 1; k < cols; k++) V(-a + w * k / cols, -b, b); for (let k = 1; k < rows; k++) Hh(-b + h * k / rows, -a, a); }
+    else if (kind === 'round') { V(0, -b, b); Hh(0, -a, a); }
+    else if (kind === 'arch' || kind === 'peak') { V(0, -b, b); Hh(b - r, -a, a); if (w > 2) [-1, 1].forEach(sd => V(sd * w / 4, -b, b - r)); }
+    else { V(0, -b, b); Hh(h * .14, -a, a); }
+  }
+  function windowUnit(cx, cy, w, h, z, dir, u0, trim, style, accent) { /* dir +1: 유리가 +z 를 봄(치료실 뒷벽) / -1: -z 를 봄(복도 창). style 에 따라 모양·장식이 달라짐 */
+    style = style || 'classic'; const f = z + dir * .03, c = PAL.frame; let parts, side = w / 2 + .09, low = h;
+    if (style === 'twin') { const pw = w * .42; parts = [-1, 1].map(sd => ['arch', sd * w * .27, pw, h]); side = w * .27 + pw / 2 + .09; low = h - winRise('arch', pw, h); }
+    else if (style === 'round') { const n = Math.max(1, Math.round(w / h)), d = Math.min(h, w / n - (n > 1 ? .3 : 0)); parts = []; for (let k = 0; k < n; k++) parts.push(['round', (k - (n - 1) / 2) * w / n, d, d]); }
+    else { parts = [[style, 0, w, h]]; low = h - winRise(style, w, h); }
+    parts.forEach(q => winOne(q[0], cx + q[1], cy, q[2], q[3], z, dir, u0 + ((dir * q[1] - q[2] / 2 + w / 2) / q[3]) / 4));
+    box(w + .36, .07, .2, c, cx, cy - h / 2 - .125, f + dir * .04); /* 창턱 */
+    if (style === 'grid' || style === 'round') { /* 창턱 꽃 상자 */
+      const bw = w * .7, n = Math.max(3, Math.round(bw / .26)), fz = f + dir * .06, by = cy - h / 2 - .09; box(bw, .15, .15, PAL.wood, cx, by + .075, fz);
+      for (let k = 0; k < n; k++) { const fx = cx - bw / 2 + bw * (k + .5) / n; const lf = new THREE.Mesh(new THREE.SphereGeometry(.085, 10, 8), mat(k % 2 ? PAL.leaf2 : PAL.leaf, { roughness: 1 })); lf.position.set(fx, by + .2, fz); G.add(lf); const fl = new THREE.Mesh(new THREE.SphereGeometry(.045, 8, 6), mat(['#F4A6B8', '#FBD45A', '#FFFFFF', '#F2A65A'][k % 4], { roughness: 1 })); fl.position.set(fx + (k % 2 ? .04 : -.04), by + .285, fz + dir * .03); G.add(fl); }
+    } else if (style === 'peak' || style === 'twin') { /* 덧문 */
+      const sw = Math.min(.34, w * .2), col = accent || PAL.woodLight, sy = cy - h / 2 + low / 2;
+      [-1, 1].forEach(sd => { const sx = cx + sd * (side + sw / 2 + .03); const pn = box(sw, low, .04, col, sx, sy, f); pn.castShadow = false; const n = Math.max(4, Math.round(low / .14)); for (let k = 0; k < n; k++) { const sl = box(sw - .08, .035, .03, col, sx, sy - low / 2 + low * (k + .5) / n, f + dir * .03); sl.castShadow = false; } });
+    } else if (trim) { /* 커튼 */
+      [-1, 1].forEach(sd => { const cu = box(.3, h + .16, .05, trim, cx + sd * (w / 2 + .02), cy - .02, f + dir * .07, { roughness: 1 }); cu.castShadow = false; }); const rod = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, w + .7, 8), mat(PAL.woodDark)); rod.rotation.z = Math.PI / 2; rod.position.set(cx, cy + h / 2 + .13, f + dir * .08); G.add(rod);
+    }
   }
   function ceilLamp(x, z) { // 천장 반구등(따뜻한 빛)
     const base = new THREE.Mesh(new THREE.CylinderGeometry(.34, .34, .04, 24), mat(PAL.woodLight)); base.position.set(x, WALL_H - .02, z); G.add(base);
@@ -137,10 +170,10 @@ window.Hospital3D = (() => {
     x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = meta.deep; x.font = numFont(128); x.fillText(num, 160, 114);
     return cvTex(cv);
   }
-  function matTexture(num, meta) { // 입구 바닥 매트(호실 번호)
+  function matTexture(meta) { // 입구 바닥 매트(무늬만, 번호 없음)
     const cv = document.createElement('canvas'); cv.width = 384; cv.height = 256; const x = cv.getContext('2d');
     x.fillStyle = meta.rug; roundRect(x, 4, 4, 376, 248, 30); x.fill(); x.strokeStyle = 'rgba(255,250,236,.95)'; x.lineWidth = 8; roundRect(x, 22, 22, 340, 212, 18); x.stroke();
-    x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = meta.deep; x.font = numFont(150); x.fillText(num, 192, 136);
+    x.strokeStyle = 'rgba(255,250,236,.55)'; x.lineWidth = 5; roundRect(x, 44, 44, 296, 168, 10); x.stroke();
     return cvTex(cv);
   }
   function roomSign(i, meta, x, y, zf, hanging) { // 입구 위 큰 번호판(복도 쪽을 봄). hanging: 앞벽이 없는 치료 구역은 천장에 매달고 뒷면에도 번호
@@ -156,7 +189,7 @@ window.Hospital3D = (() => {
     const board = new THREE.Mesh(new THREE.BoxGeometry(.04, h + .06, w + .06), mat(PAL.wood)); board.position.set(x, y, zc); board.castShadow = true; G.add(board);
     [-1, 1].forEach(sd => { const f = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false })); f.position.set(x + sd * .022, y, zc); f.rotation.y = sd * Math.PI / 2; G.add(f); });
   }
-  function entryMat(i, meta, x) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.0), mat('#ffffff', { map: matTexture(`${floor}0${i + 1}`, meta), transparent: true, roughness: 1, metalness: 0 })); m.rotation.x = -Math.PI / 2; m.position.set(x, .014, .8); m.receiveShadow = true; G.add(m); }
+  function entryMat(i, meta, x) { const m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.0), mat('#ffffff', { map: matTexture(meta), transparent: true, roughness: 1, metalness: 0 })); m.rotation.x = -Math.PI / 2; m.position.set(x, .014, .8); m.receiveShadow = true; G.add(m); }
 
   // ---------- 장면 ----------
   function buildScene() {
@@ -342,7 +375,7 @@ window.Hospital3D = (() => {
     for (let x = 3; x < COLS; x += 4) ceilLamp(x, CORR_Z / 2);
     box(COLS, WALL_H, .24, PAL.wall, COLS / 2, WALL_H / 2, CORR_Z + .12, {}, true);
     wains(COLS, COLS / 2, CORR_Z - .03, meta);
-    let wk = 0; for (let x = 4; x < COLS - 2; x += 6) windowUnit(x + 1.6, 1.95, 3.0, 1.25, CORR_Z - .035, -1, .08 + (wk++) * .37, meta.soft);
+    let wk = 0; for (let x = 4; x < COLS - 2; x += 6) { windowUnit(x + 1.6, 1.95, 3.0, 1.25, CORR_Z - .035, -1, .08 + wk * .37, meta.soft, WIN_STYLES[(wk + floor) % WIN_STYLES.length], meta.door); wk++; }
     box(.24, WALL_H, CORR_Z + ROOM_D, PAL.wall, COLS + .12, WALL_H / 2, (CORR_Z - ROOM_D) / 2, {}, true);
     box(.24, WALL_H, CORR_Z, PAL.wall, -.12, WALL_H / 2, CORR_Z / 2, {}, true);
     const sign = sprite([{ text: `${floor}F ${meta.name}` }], { w: 3.4, border: meta.accent, depthTest: false }); sign.position.set(COLS / 2, 2.5, CORR_Z - .4); sign.renderOrder = 9; G.add(sign);
@@ -363,7 +396,7 @@ window.Hospital3D = (() => {
     const tileT = type === 'bay' ? checkerTexture('#F6EFE2', '#ECE2CF', 4) : null; if (tileT) tileT.repeat.set(2.5, 3);
     room.floorMesh = plane(5, ROOM_D, type === 'plinth' ? '#D3E1D6' : '#ffffff', cx, .002, -ROOM_D / 2, type === 'room' ? { map: woodTexture('#E2CBA4', '#D9C096', '#E9D6B4', 2, 2.4), roughness: .7, metalness: 0 } : type === 'bay' ? { map: tileT, roughness: .5, metalness: 0 } : { roughness: .95, metalness: 0 });
     box(5, WALL_H, .14, meta.wall3d, cx, WALL_H / 2, -ROOM_D, {}, true); box(5, 1.0, .05, meta.soft, cx, .5, -ROOM_D + .1); box(5, .08, .07, PAL.wood, cx, 1.04, -ROOM_D + .1); box(5, .12, .06, PAL.woodDark, cx, .06, -ROOM_D + .1);
-    windowUnit(cx + 1.2, 1.95, 1.5, 1.15, -ROOM_D + .09, 1, .13 + i * .21);
+    windowUnit(cx + 1.2, 1.95, 1.5, 1.15, -ROOM_D + .09, 1, .13 + i * .21, meta.soft, WIN_STYLES[(i + floor * 2 + 2) % WIN_STYLES.length], meta.door);
     ceilLamp(cx, -3);
     let bx = cx, bz = -3.5, topY = .6;
     if (type === 'room') {
